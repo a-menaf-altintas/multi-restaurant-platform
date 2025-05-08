@@ -1,13 +1,27 @@
-// File: multi-restaurant-platform/backend/secrity/build.gradle
-// Replace secrity with secrity, security, etc.
 plugins {
-    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+    id 'java-library'
 }
 
-description = 'The secrity module' // e.g., 'The secrity module'
+// Updated description - NOTE: Corrected typo from 'secrity' to 'security'
+description = 'The security module handling authentication, authorization, users, roles, JWT, etc.'
 
 dependencies {
-    // Module-specific dependencies will be added here later
-    // Example:
-    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+    // Dependency on the common module (for BaseEntity, etc.)
+    implementation project(':backend:common')
+
+    // Spring Boot Security Starter (version managed by BOM in root)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // Jakarta Bean Validation API (included transitively by web starter, but good to be explicit)
+    // Use 'api' if validation annotations might be used on DTOs passed from this module
+    api 'jakarta.validation:jakarta.validation-api'
+
+    // Spring Boot Validation Starter (provides Hibernate Validator implementation)
+    // Version managed by BOM in root
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+
+    // Lombok is inherited from the root build.gradle's subprojects block
+
+    // Module-specific dependencies will be added here later (e.g., JWT library)
 }
