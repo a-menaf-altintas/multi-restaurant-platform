@@ -1,0 +1,47 @@
+// File: multi-restaurant-platform/backend/api/build.gradle
+plugins {
+    id 'java' // Standard Java plugin
+    id 'org.springframework.boot' // Apply Spring Boot plugin
+}
+
+description = 'The main API application module (Spring Boot)'
+
+// Apply the dependency management for Spring Boot, inherited from root
+apply plugin: 'io.spring.dependency-management'
+
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web' // For building RESTful APIs
+    // We will add Swagger/OpenAPI dependency here soon
+
+    // Dependencies on other local modules
+    implementation project(':backend:common')
+    implementation project(':backend:security')
+    implementation project(':backend:admin')
+    // Add other modules as they become relevant and needed by the api module
+    // implementation project(':backend:restaurant')
+    // implementation project(':backend:menu')
+    // implementation project(':backend:order')
+    // implementation project(':backend:payment')
+    // implementation project(':backend:print')
+
+
+    // Lombok (Example, will be common so could be in root/subprojects)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // testCompileOnly 'org.projectlombok:lombok' // For tests
+    // testAnnotationProcessor 'org.projectlombok:lombok' // For tests
+}
+
+springBoot {
+    mainClass = 'com.multirestaurantplatform.api.ApiApplication' // Replace with your actual main class path
+}
+
+// If you plan to build executable JARs (default for Spring Boot)
+bootJar {
+    layered {
+        enabled = true // Optimizes Docker image layering
+    }
+}

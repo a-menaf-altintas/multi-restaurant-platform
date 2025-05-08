@@ -1,0 +1,13 @@
+// File: multi-restaurant-platform/backend/payment/build.gradle
+// Replace payment with payment, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+
+description = 'The payment module' // e.g., 'The payment module'
+
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}

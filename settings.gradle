@@ -1,0 +1,13 @@
+// File: settings.gradle
+rootProject.name = 'multi-restaurant-platform'
+
+include 'backend'
+include 'backend:common'
+include 'backend:security'
+include 'backend:restaurant'
+include 'backend:menu'
+include 'backend:order'
+include 'backend:payment'
+include 'backend:print'
+include 'backend:admin'
+include 'backend:api'

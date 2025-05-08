@@ -1,0 +1,13 @@
+// File: multi-restaurant-platform/backend/admin/build.gradle
+// Replace admin with admin, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+
+description = 'The admin module' // e.g., 'The admin module'
+
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}

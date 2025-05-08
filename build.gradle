@@ -1,0 +1,42 @@
+// File: multi-restaurant-platform/build.gradle
+plugins {
+    id 'java' // Applies Java base plugin for compilation, testing, etc.
+    id 'org.springframework.boot' version '3.2.5' apply false // Manages Spring Boot dependencies and tasks, apply false means it's for configuration here
+    id 'io.spring.dependency-management' version '1.1.4' apply false // Manages dependency versions, typically used with Spring Boot
+}
+
+allprojects {
+    group = 'com.multirestaurantplatform' // Default group for your project artifacts
+    version = '0.0.1-SNAPSHOT' // Default version for your project artifacts
+
+    repositories {
+        mavenCentral() // Specifies Maven Central as a source for dependencies
+    }
+}
+
+subprojects {
+    apply plugin: 'java' // Apply java plugin to all subprojects by default
+    apply plugin: 'io.spring.dependency-management' // Apply dependency management to all subprojects
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21 // Set Java version for source code
+        targetCompatibility = JavaVersion.VERSION_21 // Set Java version for compiled bytecode
+    }
+
+    dependencies {
+        // Common dependencies for all subprojects can be added here
+        // For example, Lombok (though we'll add it more specifically later)
+        // compileOnly 'org.projectlombok:lombok'
+        // annotationProcessor 'org.projectlombok:lombok'
+        // testCompileOnly 'org.projectlombok:lombok'
+        // testAnnotationProcessor 'org.projectlombok:lombok'
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8' // Ensure consistent encoding
+    }
+
+    tasks.withType(Test) {
+        useJUnitPlatform() // Use JUnit 5 (JUnit Platform) for tests
+    }
+}

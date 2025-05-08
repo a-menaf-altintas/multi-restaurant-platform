@@ -1,0 +1,13 @@
+// File: multi-restaurant-platform/backend/menu/build.gradle
+// Replace menu with menu, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+
+description = 'The menu module' // e.g., 'The menu module'
+
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}
