@@ -1,0 +1,33 @@
+I want to create this project from scratch with small steps.
+
+
+I tried to create application once whole without small increaments and i got lots of errors which i could not solve.
+
+
+I want you to start from scratch with small steps. ask my permission before proceed. first create a plan. and then ask me to write first step. write it and ask me if to proceed. always ask me to proceed. this will be a huge project. first backend then frontend. I want to run application in docker containers. it should have all aspect of the software development such as deployemnt, testing, production etc.. the project should have gitignore, .env etc. and you should explain each of the step. small steps. ask before create anything. never create large number of files.
+
+
+I use mac computer and i will be using intellij for backend and vs code for frontend.
+
+you should tell me starting downloading relevent tool, setting them up etc. never skip any detail. and you should give me the path of the each file where should they be located.
+
+Project should be modular so that i can in future be able to edit.
+
+I will develop locally in my computer and push to github each step. you should remind to push changes always. I am planing to use a server in the future to make project alive. I may also use Google Cloud services or Amazon to make application alive. consider this when you create setup.
+
+
+the project's programming languages will be Java, Angular, Javascript, typescript.
+
+The critical part of the project will be small steps. I want to test with swagger during small implementation endpoints. that is why swagger should be ready from the beginning.
+
+I want to test each end point after they are ready to be tested.
+
+The project should be modular and progress should be hierarchical. It means that you should start with admin and move on to the restaurants then customers or user with all secrutiy considerations. each module should have testing classes so that I dont miss any detail. do not break any exisiting code unless you have a best method to implement anything.
+
+First admin module. then the others. consider this and number plan accordingly. first admin module if possible. if not explain why.
+
+You are a full stack developer. do not miss any detail.
+
+I want root to be multi-restaurant-platform.
+
+

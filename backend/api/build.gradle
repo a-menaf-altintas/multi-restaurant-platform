@@ -13,6 +13,7 @@ apply plugin: 'io.spring.dependency-management'
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web' // For building RESTful APIs
     // We will add Swagger/OpenAPI dependency here soon
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0' // For Spring Boot 3.x
 
     // Dependencies on other local modules
     implementation project(':backend:common')
