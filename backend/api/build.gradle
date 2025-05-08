@@ -6,16 +6,26 @@ plugins {
 
 description = 'The main API application module (Spring Boot)'
 
-// Apply the dependency management for Spring Boot, inherited from root
-apply plugin: 'io.spring.dependency-management'
-
+// Dependency Management is applied via allprojects in root build.gradle
+// No need to apply 'io.spring.dependency-management' here again
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web' // For building RESTful APIs
-    // We will add Swagger/OpenAPI dependency here soon
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0' // For Spring Boot 3.x
+    // --- Spring Boot Starters (Versions managed by BOM in root project) ---
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // Ensure JPA auto-config runs
+    implementation 'org.springframework.boot:spring-boot-starter-validation'// For validation features
+    implementation 'org.springframework.boot:spring-boot-starter-security' // Ensure Security auto-config runs
 
-    // Dependencies on other local modules
+    // --- Database & Migration ---
+    // H2 Database (Runtime only for local development/testing)
+    runtimeOnly 'com.h2database:h2'
+    // Flyway for Database Migrations (Version managed by BOM in root project)
+    implementation 'org.flywaydb:flyway-core'
+
+    // --- API Documentation (Version managed by dependencyManagement in root project) ---
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui' // Removed explicit version
+
+    // --- Local Module Dependencies ---
     implementation project(':backend:common')
     implementation project(':backend:security')
     implementation project(':backend:admin')
@@ -26,18 +36,19 @@ dependencies {
     // implementation project(':backend:payment')
     // implementation project(':backend:print')
 
-
-    // Lombok (Example, will be common so could be in root/subprojects)
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
-
+    // --- Testing (Version managed by BOM in root project) ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    // testCompileOnly 'org.projectlombok:lombok' // For tests
-    // testAnnotationProcessor 'org.projectlombok:lombok' // For tests
+
+    // Lombok dependencies are managed in the root build.gradle
+    // Ensure they are removed from here:
+    // compileOnly 'org.projectlombok:lombok'
+    // annotationProcessor 'org.projectlombok:lombok'
+    // testCompileOnly 'org.projectlombok:lombok'
+    // testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 springBoot {
-    mainClass = 'com.multirestaurantplatform.api.ApiApplication' // Replace with your actual main class path
+    mainClass = 'com.multirestaurantplatform.api.ApiApplication' // Verify this is your correct main class path
 }
 
 // If you plan to build executable JARs (default for Spring Boot)
@@ -46,3 +57,9 @@ bootJar {
         enabled = true // Optimizes Docker image layering
     }
 }
+
+// Ensure Java version configuration is picked up from root/subprojects, or add explicitly if needed:
+// java {
+//     sourceCompatibility = JavaVersion.VERSION_21
+//     targetCompatibility = JavaVersion.VERSION_21
+// }
