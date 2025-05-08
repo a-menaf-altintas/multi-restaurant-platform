@@ -1,13 +1,16 @@
-// File: multi-restaurant-platform/backend/common/build.gradle
-// Replace common with common, security, etc.
 plugins {
-    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+    id 'java-library'
 }
 
-description = 'The common module' // e.g., 'The common module'
+description = 'The common module containing shared classes like base entities, DTOs, exceptions, etc.'
 
 dependencies {
-    // Module-specific dependencies will be added here later
-    // Example:
-    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+    // JPA API for annotations like @Entity, @Id, @MappedSuperclass etc.
+    // Version managed by Spring Boot BOM imported in root project
+    api 'jakarta.persistence:jakarta.persistence-api'
+
+    // Spring Data JPA starter - Version managed by Spring Boot BOM
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Lombok dependencies are now managed in the root build.gradle's subprojects block
 }

@@ -1,42 +1,62 @@
-// File: multi-restaurant-platform/build.gradle
 plugins {
-    id 'java' // Applies Java base plugin for compilation, testing, etc.
-    id 'org.springframework.boot' version '3.2.5' apply false // Manages Spring Boot dependencies and tasks, apply false means it's for configuration here
-    id 'io.spring.dependency-management' version '1.1.4' apply false // Manages dependency versions, typically used with Spring Boot
+    id 'java'
+    id 'org.springframework.boot' version '3.2.5' apply false // Define Spring Boot plugin version for all modules
+    id 'io.spring.dependency-management' version '1.1.4' // Define & apply dependency management globally
+}
+
+// Define common versions in extra properties for easy updates
+ext {
+    lombokVersion = '1.18.32' // Use a recent, stable Lombok version
+    springBootVersion = '3.2.5' // Match the plugin version
+    springDocOpenapiVersion = '2.5.0' // Define springdoc version here too
 }
 
 allprojects {
-    group = 'com.multirestaurantplatform' // Default group for your project artifacts
-    version = '0.0.1-SNAPSHOT' // Default version for your project artifacts
+    group = 'com.multirestaurantplatform'
+    version = '0.0.1-SNAPSHOT'
 
     repositories {
-        mavenCentral() // Specifies Maven Central as a source for dependencies
+        mavenCentral()
+    }
+
+    // Apply dependency management to ALL projects
+    apply plugin: 'io.spring.dependency-management'
+
+    dependencyManagement {
+        imports {
+            // Import Spring Boot's BOM - this defines versions for Boot dependencies
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        }
+        dependencies {
+            // Define versions for other direct dependencies we want to manage
+            dependency "org.projectlombok:lombok:${lombokVersion}"
+            dependency "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springDocOpenapiVersion}"
+        }
     }
 }
 
 subprojects {
-    apply plugin: 'java' // Apply java plugin to all subprojects by default
-    apply plugin: 'io.spring.dependency-management' // Apply dependency management to all subprojects
+    apply plugin: 'java' // Apply java plugin to all subprojects
 
     java {
-        sourceCompatibility = JavaVersion.VERSION_21 // Set Java version for source code
-        targetCompatibility = JavaVersion.VERSION_21 // Set Java version for compiled bytecode
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
+    // Common dependencies for all subprojects
     dependencies {
-        // Common dependencies for all subprojects can be added here
-        // For example, Lombok (though we'll add it more specifically later)
-        // compileOnly 'org.projectlombok:lombok'
-        // annotationProcessor 'org.projectlombok:lombok'
-        // testCompileOnly 'org.projectlombok:lombok'
-        // testAnnotationProcessor 'org.projectlombok:lombok'
+        // Lombok - version is managed by dependencyManagement
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testAnnotationProcessor 'org.projectlombok:lombok'
     }
 
     tasks.withType(JavaCompile) {
-        options.encoding = 'UTF-8' // Ensure consistent encoding
+        options.encoding = 'UTF-8'
     }
 
     tasks.withType(Test) {
-        useJUnitPlatform() // Use JUnit 5 (JUnit Platform) for tests
+        useJUnitPlatform()
     }
 }
