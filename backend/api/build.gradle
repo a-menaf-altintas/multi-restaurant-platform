@@ -7,7 +7,6 @@ plugins {
 description = 'The main API application module (Spring Boot)'
 
 // Dependency Management is applied via allprojects in root build.gradle
-// No need to apply 'io.spring.dependency-management' here again
 
 dependencies {
     // --- Spring Boot Starters (Versions managed by BOM in root project) ---
@@ -23,7 +22,11 @@ dependencies {
     implementation 'org.flywaydb:flyway-core'
 
     // --- API Documentation (Version managed by dependencyManagement in root project) ---
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui' // Removed explicit version
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+
+    // --- Environment Variable Management ---
+    // Library to load .env files. This allows us to use a .env file for local configuration.
+    implementation 'io.github.cdimascio:dotenv-java:2.3.2' // Using version 2.3.2, ensure this is a recent stable version.
 
     // --- Local Module Dependencies ---
     implementation project(':backend:common')
@@ -40,11 +43,6 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
     // Lombok dependencies are managed in the root build.gradle
-    // Ensure they are removed from here:
-    // compileOnly 'org.projectlombok:lombok'
-    // annotationProcessor 'org.projectlombok:lombok'
-    // testCompileOnly 'org.projectlombok:lombok'
-    // testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 springBoot {
@@ -57,9 +55,3 @@ bootJar {
         enabled = true // Optimizes Docker image layering
     }
 }
-
-// Ensure Java version configuration is picked up from root/subprojects, or add explicitly if needed:
-// java {
-//     sourceCompatibility = JavaVersion.VERSION_21
-//     targetCompatibility = JavaVersion.VERSION_21
-// }

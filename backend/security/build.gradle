@@ -1,9 +1,15 @@
+// File: multi-restaurant-platform/backend/security/build.gradle
 plugins {
     id 'java-library'
 }
 
 // Updated description - NOTE: Corrected typo from 'secrity' to 'security'
 description = 'The security module handling authentication, authorization, users, roles, JWT, etc.'
+
+// Define jjwt version for consistency
+ext {
+    jjwtVersion = '0.12.5' // Use a recent stable version of JJWT
+}
 
 dependencies {
     // Dependency on the common module (for BaseEntity, etc.)
@@ -20,8 +26,17 @@ dependencies {
     // Version managed by BOM in root
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-
     // Lombok is inherited from the root build.gradle's subprojects block
 
-    // Module-specific dependencies will be added here later (e.g., JWT library)
+    // --- JWT Dependencies ---
+    // JJWT API - provides the interfaces
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    // JJWT Implementation - provides the runtime implementation
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    // JJWT Jackson Parser - for serializing/deserializing JWTs with Jackson (Spring Boot's default JSON library)
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+    // Or if you prefer Gson:
+    // runtimeOnly "io.jsonwebtoken:jjwt-gson:${jjwtVersion}"
+
+    // Module-specific dependencies will be added here later
 }
