@@ -34,18 +34,21 @@ public class AuthController {
     private final AuthenticationManager authenticationManager; // For authenticating users
     private final JwtService jwtService;                     // For generating JWT tokens
 
+    // In AuthController.java
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
-        try {
-            User registeredUser = userService.registerUser(registerRequest);
-            // Consider returning a different DTO instead of the full User entity to avoid exposing too much.
-            // For now, a success message or a simplified representation is fine.
-            LOGGER.info("User registered successfully: {}", registeredUser.getUsername());
-            return ResponseEntity.status(HttpStatus.CREATED).body("User registered successfully with username: " + registeredUser.getUsername());
-        } catch (RuntimeException e) { // Catch specific exceptions like UserAlreadyExistsException later
-            LOGGER.warn("Registration failed for username {}: {}", registerRequest.getUsername(), e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+        // Remove the try-catch block for RuntimeException
+        User registeredUser = userService.registerUser(registerRequest); // Let exceptions propagate
+
+        // Consider returning a different DTO instead of the full User entity to avoid exposing too much.
+        // For now, a success message or a simplified representation is fine.
+        LOGGER.info("User registered successfully: {}", registeredUser.getUsername());
+
+        // For consistency, you might want to consider returning a JSON response even for success.
+        // Example:
+        // Map<String, String> responseBody = Map.of("message", "User registered successfully with username: " + registeredUser.getUsername());
+        // return ResponseEntity.status(HttpStatus.CREATED).body(responseBody);
+        return ResponseEntity.status(HttpStatus.CREATED).body("User registered successfully with username: " + registeredUser.getUsername());
     }
 
     @PostMapping("/login")
