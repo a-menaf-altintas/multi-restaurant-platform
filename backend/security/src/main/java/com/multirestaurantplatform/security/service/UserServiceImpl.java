@@ -1,5 +1,6 @@
 package com.multirestaurantplatform.security.service;
 
+import com.multirestaurantplatform.common.exception.ConflictException; // Import the custom exception
 import com.multirestaurantplatform.security.dto.RegisterRequest;
 import com.multirestaurantplatform.security.model.User;
 import com.multirestaurantplatform.security.repository.UserRepository;
@@ -20,14 +21,14 @@ public class UserServiceImpl implements UserService {
     public User registerUser(RegisterRequest request) {
         // 1. Check if username already exists
         if (userRepository.existsByUsername(request.getUsername())) {
-            // TODO: Replace with custom, more specific exception
-            throw new RuntimeException("Error: Username is already taken!");
+            // Throw ConflictException if username is taken
+            throw new ConflictException("Error: Username '" + request.getUsername() + "' is already taken!");
         }
 
         // 2. Check if email already exists
         if (userRepository.existsByEmail(request.getEmail())) {
-            // TODO: Replace with custom, more specific exception
-            throw new RuntimeException("Error: Email is already in use!");
+            // Throw ConflictException if email is in use
+            throw new ConflictException("Error: Email '" + request.getEmail() + "' is already in use!");
         }
 
         // 3. Create new user's account
@@ -42,4 +43,20 @@ public class UserServiceImpl implements UserService {
         // 5. Save the user to the database
         return userRepository.save(user);
     }
+
+    // TODO: Add other UserService methods here if any, e.g., for finding users,
+    // and refactor them to use ResourceNotFoundException where appropriate.
+    // For example:
+    //
+    // @Override
+    // public User findUserByUsername(String username) {
+    //     return userRepository.findByUsername(username)
+    //         .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+    // }
+    //
+    // @Override
+    // public User findUserById(Long id) {
+    //     return userRepository.findById(id)
+    //         .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
+    // }
 }
