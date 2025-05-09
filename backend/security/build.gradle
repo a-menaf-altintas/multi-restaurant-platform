@@ -3,7 +3,7 @@ plugins {
     id 'java-library'
 }
 
-// Updated description - NOTE: Corrected typo from 'secrity' to 'security'
+// Updated description
 description = 'The security module handling authentication, authorization, users, roles, JWT, etc.'
 
 // Define jjwt version for consistency
@@ -18,25 +18,24 @@ dependencies {
     // Spring Boot Security Starter (version managed by BOM in root)
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
-    // Jakarta Bean Validation API (included transitively by web starter, but good to be explicit)
-    // Use 'api' if validation annotations might be used on DTOs passed from this module
+    // Jakarta Bean Validation API
     api 'jakarta.validation:jakarta.validation-api'
 
-    // Spring Boot Validation Starter (provides Hibernate Validator implementation)
-    // Version managed by BOM in root
+    // Spring Boot Validation Starter
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // --- Jakarta Servlet API ---
+    // This is needed because classes like JwtAuthenticationFilter and JwtAuthenticationEntryPoint
+    // use HttpServletRequest, HttpServletResponse, ServletException, etc.
+    // These are not automatically brought in by spring-boot-starter-security for a java-library module.
+    // The version will be managed by Spring Boot's dependency management.
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
+
 
     // Lombok is inherited from the root build.gradle's subprojects block
 
     // --- JWT Dependencies ---
-    // JJWT API - provides the interfaces
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
-    // JJWT Implementation - provides the runtime implementation
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
-    // JJWT Jackson Parser - for serializing/deserializing JWTs with Jackson (Spring Boot's default JSON library)
     runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
-    // Or if you prefer Gson:
-    // runtimeOnly "io.jsonwebtoken:jjwt-gson:${jjwtVersion}"
-
-    // Module-specific dependencies will be added here later
 }
