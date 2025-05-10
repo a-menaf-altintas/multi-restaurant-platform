@@ -21,4 +21,6 @@ dependencies {
     // api 'jakarta.validation:jakarta.validation-api' // If direct validation needed and not pulled transitively
 
     // Lombok is managed in the root build.gradle
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test' // Includes JUnit 5, Mockito, AssertJ, etc.
 }
