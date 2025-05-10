@@ -1,0 +1,1697 @@
+Project Name: multi-restaurant-platform
+Project Summary:
+Project Name: multi-restaurant-platform (Multi-Restaurant Platform)
+Overview:
+The Multi-Restaurant Platform is a Docker-containerized Spring Boot application that provides a complete solution for restaurant management, online ordering, and delivery services. It supports multiple restaurants, each with their own menus, administrators, and configurations.
+Key Features:
+- Multi-restaurant Support: Manage multiple restaurants on a single platform.
+- User Authentication: Secure JWT-based authentication and role-based authorization (Roles: ADMIN, RESTAURANT_ADMIN, CUSTOMER).
+- Menu Management: Create and manage restaurant menus, categories, and individual items.
+- Order Processing: Handle customer orders with various statuses.
+- Payment Integration: Designed to process payments with Stripe (currently using a mock implementation).
+- WebSocket Printing System: Automated receipt and kitchen ticket printing directly from the browser.
+- Content Management: Built-in CMS for platform content.
+- Admin Dashboard: Comprehensive admin tools for system configuration.
+Tech Stack:
+- Programming Language: Java 21
+- Framework: Spring Boot 3.x (e.g., 3.2.5, adaptable to newer 3.x versions)
+- Security: Spring Security, JWT
+- Data Persistence: Spring Data JPA
+- Database: PostgreSQL (production), H2 (development/testing)
+- Database Migration: Flyway
+- Real-time Communication: WebSockets
+- Build Tool: Gradle
+- Containerization: Docker
+- Utilities: Lombok
+---------------------------------------- FILES ----------------------------------------
+File: .gitignore
+# Gradle
+.gradle
+build/
+!build/tmp/checkstyle/ # Example if you want to keep checkstyle reports but ignore rest of build
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+shelf/ # IntelliJ shelf
+workspace.xml # IntelliJ workspace file (often in .idea)
+# Spring Boot specific
+target/ # Though we use build/, some tools might generate target/
+# Maven (in case it's ever used or for consistency)
+# target/
+# pom.xml.tag
+# pom.xml.releaseBackup
+# pom.xml.versionsBackup
+# release.properties
+# dependency-reduced-pom.xml
+# buildNumber.properties
+# Log files
+*.log
+logs/
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+# Environment variables file
+.env
+*.env
+.env.*
+!.env.example # Keep example env files if you have them
+# Compiled files
+*.class
+*.jar
+*.war
+*.ear
+# Package Files #
+# --------------- #
+# *.jar
+# *.war
+# *.nar
+# *.ear
+# *.zip
+# *.tar.gz
+# *.rpm
+# *.deb
+# Sensitive information
+credentials.*
+secrets.*
+# Local settings
+local.properties
+# Node / NPM (in case you add frontend directly in the same root later without a separate gitignore)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json # often committed, but sometimes ignored in library projects
+yarn.lock # often committed
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+# Gradle Wrapper
+# We usually commit the wrapper jar but if you choose not to:
+# !gradle/wrapper/gradle-wrapper.jar
+File: Dockerfile
+# Stage 1: Build the application using Gradle
+FROM gradle:8.7-jdk21 AS build
+# The gradle image tag should match a version compatible with your project and JDK.
+# Using gradle:8.7-jdk21 since your project uses Java 21 and Gradle 8.x.
+# The README.md.pdf also mentioned gradle:8.0-jdk21. Using a slightly newer patch like 8.7 is fine.
+WORKDIR /app
+# Copy only the files necessary for dependency resolution first to leverage Docker cache
+COPY build.gradle settings.gradle /app/
+COPY backend/build.gradle /app/backend/
+COPY backend/api/build.gradle /app/backend/api/
+# If other modules' build.gradle files are needed for resolving api dependencies, copy them too.
+# For now, assuming api's dependencies are self-contained or pulled via 'project(...)' correctly.
+# Copy the rest of the source code
+COPY . /app/
+# Grant execution rights to gradlew
+RUN chmod +x ./gradlew
+# Build the application, targeting the api module's bootJar task
+RUN ./gradlew :backend:api:bootJar --no-daemon
+# Stage 2: Create the runtime image (This is the part you posted and looks good)
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /app/backend/api/build/libs/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+File: backend/admin/build.gradle
+// File: multi-restaurant-platform/backend/admin/build.gradle
+// Replace admin with admin, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+description = 'The admin module' // e.g., 'The admin module'
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}
+File: backend/api/build.gradle
+// File: multi-restaurant-platform/backend/api/build.gradle
+plugins {
+    id 'java' // Standard Java plugin
+    id 'org.springframework.boot' // Apply Spring Boot plugin
+}
+description = 'The main API application module (Spring Boot)'
+// Dependency Management is applied via allprojects in root build.gradle
+dependencies {
+    // --- Spring Boot Starters (Versions managed by BOM in root project) ---
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // Ensure JPA auto-config runs
+    implementation 'org.springframework.boot:spring-boot-starter-validation'// For validation features
+    implementation 'org.springframework.boot:spring-boot-starter-security' // Ensure Security auto-config runs
+// --- Database & Migration ---
+    // H2 Database (Runtime only for local development/testing)
+    runtimeOnly 'com.h2database:h2'
+    // Flyway for Database Migrations (Version managed by BOM in root project)
+    implementation 'org.flywaydb:flyway-core'
+// --- API Documentation (Version managed by dependencyManagement in root project) ---
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+// --- Environment Variable Management ---
+    // Library to load .env files. This allows us to use a .env file for local configuration.
+    implementation 'io.github.cdimascio:dotenv-java:2.3.2' // Using version 2.3.2, ensure this is a recent stable version.
+// --- Local Module Dependencies ---
+    implementation project(':backend:common')
+    implementation project(':backend:security')
+    implementation project(':backend:admin')
+    // Add other modules as they become relevant and needed by the api module
+    // implementation project(':backend:restaurant')
+    // implementation project(':backend:menu')
+    // implementation project(':backend:order')
+    // implementation project(':backend:payment')
+    // implementation project(':backend:print')
+// --- Testing (Version managed by BOM in root project) ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+// Lombok dependencies are managed in the root build.gradle
+}
+springBoot {
+    mainClass = 'com.multirestaurantplatform.api.ApiApplication' // Verify this is your correct main class path
+}
+// If you plan to build executable JARs (default for Spring Boot)
+bootJar {
+    layered {
+        enabled = true // Optimizes Docker image layering
+    }
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/ApiApplication.java
+package com.multirestaurantplatform.api;
+import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+@SpringBootApplication(scanBasePackages = "com.multirestaurantplatform")
+@EnableJpaRepositories(basePackages = "com.multirestaurantplatform.security.repository")
+@EntityScan(basePackages = {"com.multirestaurantplatform.security.model", "com.multirestaurantplatform.common.model"})
+public class ApiApplication {
+public static void main(String[] args) {
+        // Configure Dotenv to look for the .env file in the project root directory.
+        Dotenv dotenv = Dotenv.configure()
+                .directory("../../") // Path from backend/api to project root
+                .filename(".env")    // Explicitly specify the filename
+                .ignoreIfMissing()   // Don't throw an error if .env is not found
+                .ignoreIfMalformed() // Don't throw an error if .env is malformed
+                .load();
+String loadedSecret = dotenv.get("JWT_SECRET_KEY");
+if (loadedSecret != null && !loadedSecret.trim().isEmpty()) {
+            // Explicitly set the loaded secret as a system property
+            // BEFORE SpringApplication.run() to ensure Spring Boot picks it up.
+            System.setProperty("JWT_SECRET_KEY", loadedSecret);
+        }
+        // Removed debug print lines for security
+SpringApplication.run(ApiApplication.class, args);
+    }
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/config/OpenApiConfig.java
+package com.multirestaurantplatform.api.config;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import java.util.Collections; // Import Collections
+@Configuration
+public class OpenApiConfig {
+@Bean
+    public OpenAPI customOpenAPI() {
+        final String securitySchemeName = "bearerAuth"; // Define the security scheme name
+return new OpenAPI()
+                .info(new Info()
+                        .title("Multi-Restaurant Platform API")
+                        .version("1.0")
+                        .description("API documentation for the Multi-Restaurant Platform Backend"))
+                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName, Collections.emptyList())) // Use addList with empty scopes
+                .components(new Components()
+                        .addSecuritySchemes(securitySchemeName, new SecurityScheme() // Use the defined name
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")
+                                .description("Enter JWT token in the format 'Bearer <token>'")
+                        ));
+    }
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/controller/HealthCheckController.java
+package com.multirestaurantplatform.api.controller;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize; // For method-level security
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+@RestController
+@RequestMapping("/api/v1/test") // Changed base path for clarity, or keep /health and add new mapping
+public class HealthCheckController { // Renaming to TestController might be better if adding more test endpoints
+@GetMapping("/health") // This remains public as per SecurityConfig
+    public Map<String, String> checkHealth() {
+        return Collections.singletonMap("status", "UP");
+    }
+// New SECURED endpoint
+    @GetMapping("/secure-data")
+    // @PreAuthorize("isAuthenticated()") // Alternative: method-level security if @EnableMethodSecurity is on SecurityConfig
+    public ResponseEntity<Map<String, Object>> getSecureData() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = "anonymous";
+if (authentication != null && authentication.getPrincipal() instanceof UserDetails) {
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            username = userDetails.getUsername();
+        } else if (authentication != null) {
+            username = authentication.getName();
+        }
+Map<String, Object> data = new HashMap<>();
+        data.put("message", "This is secured data for authenticated users.");
+        data.put("user", username);
+        data.put("authorities", authentication != null ? authentication.getAuthorities() : Collections.emptyList());
+return ResponseEntity.ok(data);
+    }
+// Example of an admin-only endpoint (requires @EnableMethodSecurity in SecurityConfig)
+    @GetMapping("/admin-only")
+    @PreAuthorize("hasRole('ADMIN')") // Ensure your roles are prefixed with ROLE_ in UserDetails authorities, or use hasAuthority('ADMIN')
+    public ResponseEntity<String> getAdminData() {
+        return ResponseEntity.ok("This is data only for users with the ADMIN role.");
+    }
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/controller/UserController.java
+package com.multirestaurantplatform.api.controller;
+import com.multirestaurantplatform.security.dto.UserResponseDto;
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+@RestController
+@RequestMapping("/api/v1/users") // Base path for user-related endpoints
+@RequiredArgsConstructor
+public class UserController {
+private final UserService userService;
+// Endpoint to get a user by username
+    @GetMapping("/username/{username}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponseDto> getUserByUsername(@PathVariable String username) {
+        User user = userService.findUserByUsername(username);
+        UserResponseDto userResponseDto = mapToUserResponseDto(user);
+        return ResponseEntity.ok(userResponseDto);
+    }
+// New Endpoint: Get a user by ID
+    @GetMapping("/id/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponseDto> getUserById(@PathVariable Long id) {
+        User user = userService.findUserById(id);
+        UserResponseDto userResponseDto = mapToUserResponseDto(user);
+        return ResponseEntity.ok(userResponseDto);
+    }
+// New Endpoint: Get a user by email
+    @GetMapping("/email/{email}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponseDto> getUserByEmail(@PathVariable String email) {
+        User user = userService.findUserByEmail(email); // Assuming email path variable should be URL-friendly
+        // For emails, sometimes using a request param is preferred
+        // e.g., /users/search?email=user@example.com
+        // But /email/{email} is also common.
+        UserResponseDto userResponseDto = mapToUserResponseDto(user);
+        return ResponseEntity.ok(userResponseDto);
+    }
+// Helper method to map User entity to UserResponseDto
+    private UserResponseDto mapToUserResponseDto(User user) {
+        if (user == null) {
+            return null; // Should not happen if service throws ResourceNotFoundException
+        }
+        return new UserResponseDto(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRoles()
+        );
+    }
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/controller/auth/AuthController.java
+package com.multirestaurantplatform.api.controller.auth;
+import com.multirestaurantplatform.security.dto.JwtAuthenticationResponse;
+import com.multirestaurantplatform.security.dto.LoginRequest;
+import com.multirestaurantplatform.security.dto.RegisterRequest;
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.service.JwtService;
+import com.multirestaurantplatform.security.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+@RestController
+@RequestMapping("/api/v1/auth") // Base path for authentication-related endpoints
+@RequiredArgsConstructor // Lombok: Creates constructor for all final fields
+public class AuthController {
+private static final Logger LOGGER = LoggerFactory.getLogger(AuthController.class);
+private final UserService userService;
+    private final AuthenticationManager authenticationManager; // For authenticating users
+    private final JwtService jwtService;                     // For generating JWT tokens
+// In AuthController.java
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
+        // Remove the try-catch block for RuntimeException
+        User registeredUser = userService.registerUser(registerRequest); // Let exceptions propagate
+// Consider returning a different DTO instead of the full User entity to avoid exposing too much.
+        // For now, a success message or a simplified representation is fine.
+        LOGGER.info("User registered successfully: {}", registeredUser.getUsername());
+// For consistency, you might want to consider returning a JSON response even for success.
+        // Example:
+        // Map<String, String> responseBody = Map.of("message", "User registered successfully with username: " + registeredUser.getUsername());
+        // return ResponseEntity.status(HttpStatus.CREATED).body(responseBody);
+        return ResponseEntity.status(HttpStatus.CREATED).body("User registered successfully with username: " + registeredUser.getUsername());
+    }
+@PostMapping("/login")
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        try {
+            // Attempt to authenticate the user using Spring Security's AuthenticationManager
+            // This will use your UserDetailsServiceImpl to load the user and check credentials
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
+// If authentication is successful, set the authentication in the SecurityContext
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+// The principal is now an instance of UserDetails (as returned by your UserDetailsServiceImpl)
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+// Generate JWT token using our JwtService
+            String jwt = jwtService.generateToken(userDetails);
+LOGGER.info("User authenticated successfully: {}", userDetails.getUsername());
+            // Return the JWT in the response
+            return ResponseEntity.ok(new JwtAuthenticationResponse(jwt));
+} catch (BadCredentialsException e) {
+            LOGGER.warn("Authentication failed for user {}: Invalid credentials", loginRequest.getUsername());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Error: Invalid username or password");
+        } catch (Exception e) {
+            LOGGER.error("Authentication error for user {}: {}", loginRequest.getUsername(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: An internal server error occurred during authentication.");
+        }
+    }
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/dto/error/ErrorResponse.java
+package com.multirestaurantplatform.api.dto.error;
+import java.time.LocalDateTime;
+public record ErrorResponse(
+    LocalDateTime timestamp,
+    int status,
+    String error, // Short error description e.g., "Not Found", "Bad Request"
+    String message, // Detailed error message from the exception
+    String path // The request path
+) {
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/exception/GlobalExceptionHandler.java
+package com.multirestaurantplatform.api.exception;
+// ... other imports
+import com.multirestaurantplatform.common.exception.BadRequestException; // Added
+import com.multirestaurantplatform.common.exception.ConflictException; // Added
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException; // Added
+import com.multirestaurantplatform.api.dto.error.ErrorResponse; // Added
+import jakarta.servlet.http.HttpServletRequest; // Added if not present, or use WebRequest
+import org.slf4j.Logger; // Added
+import org.slf4j.LoggerFactory; // Added
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+// ...
+@ControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+private static final Logger customLogger = LoggerFactory.getLogger(GlobalExceptionHandler.class); // Renamed to avoid conflict if 'logger' is in parent
+@Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString()); // Consider LocalDateTime directly if ErrorResponse is adapted
+        body.put("status", status.value());
+        body.put("error", "Bad Request"); // Or HttpStatus.BAD_REQUEST.getReasonPhrase()
+List<String> errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.toList());
+        body.put("errors", errors); // This "errors" field is specific to validation
+String path = "";
+        if (request != null && request.getDescription(false) != null) {
+            path = request.getDescription(false).replace("uri=", "");
+            body.put("path", path);
+        }
+        customLogger.warn("MethodArgumentNotValidException: {} errors for path {}: {}", ex.getBindingResult().getErrorCount(), path, errors);
+        return new ResponseEntity<>(body, headers, status);
+    }
+// --- New Handlers for Custom Exceptions ---
+@ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
+            ResourceNotFoundException ex, HttpServletRequest request) { // Using HttpServletRequest for simplicity here
+        customLogger.warn("ResourceNotFoundException: {} at path {}", ex.getMessage(), request.getRequestURI());
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+@ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequestException(
+            BadRequestException ex, HttpServletRequest request) {
+        customLogger.warn("BadRequestException: {} at path {}", ex.getMessage(), request.getRequestURI());
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+@ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflictException(
+            ConflictException ex, HttpServletRequest request) {
+        customLogger.warn("ConflictException: {} at path {}", ex.getMessage(), request.getRequestURI());
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI());
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+    }
+@ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+            AccessDeniedException ex, HttpServletRequest request) {
+        customLogger.warn("AccessDeniedException: {} for path {}", ex.getMessage(), request.getRequestURI()); // Log as WARN or INFO
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.FORBIDDEN.value(),
+                HttpStatus.FORBIDDEN.getReasonPhrase(),
+                "Access Denied: You do not have the necessary permissions to access this resource.", // Or ex.getMessage() if you prefer
+                request.getRequestURI());
+        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+    }
+// --- Fallback Handler ---
+    // This handles any other exceptions not specifically caught above or by ResponseEntityExceptionHandler
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(
+            Exception ex, HttpServletRequest request) {
+        // Avoid logging known Spring Security exceptions like AccessDeniedException twice if already handled by Spring Security
+        // Or if you have specific handlers for them
+        customLogger.error("Unhandled Exception: {} at path {}", ex.getMessage(), request.getRequestURI(), ex);
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                "An unexpected internal server error occurred.", // Generic message to client
+                request.getRequestURI());
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
+File: backend/api/src/main/resources/application.properties
+# File: multi-restaurant-platform/backend/api/src/main/resources/application.properties
+# Default Server Configuration
+server.port=8081
+# Application Name
+spring.application.name=multi-restaurant-platform-backend
+# --- H2 Database Console Settings (for development) ---
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+# --- JPA / Hibernate Settings ---
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+# How Hibernate interacts with the schema. Set to 'validate' or 'none' when using Flyway.
+# 'validate': Checks if the DB schema matches JPA entities on startup (good for catching mismatches).
+# 'none': Trusts Flyway completely to manage the schema.
+# Avoid 'create', 'create-drop', or 'update' when Flyway is active.
+spring.jpa.hibernate.ddl-auto=validate
+# --- Flyway Settings ---
+spring.flyway.enabled=true
+# spring.flyway.locations=classpath:db/migration # Default location
+# --- SpringDoc OpenAPI (Swagger UI) Configuration ---
+# springdoc.swagger-ui.path=/swagger-ui.html
+# springdoc.api-docs.path=/v3/api-docs
+# --- JWT Configuration ---
+# The JWT secret key is read from the JWT_SECRET_KEY environment variable.
+# This variable is loaded from the .env file by dotenv-java during local development.
+app.jwt.secret=${JWT_SECRET_KEY:fallback-secret-for-testing-only-if-env-is-missing-replace-or-remove-for-prod}
+# Token validity duration in milliseconds. Example: 1 hour = 3600000 ms.
+app.jwt.expiration-ms=3600000
+# Standard prefix for the JWT in the Authorization header (e.g., "Bearer <token>"). Note the space at the end.
+app.jwt.token-prefix=Bearer
+# --- Logging Configuration ---
+logging.level.com.multirestaurantplatform.security=DEBUG
+File: backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth/AuthControllerIntegrationTest.java
+package com.multirestaurantplatform.api.controller.auth;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.multirestaurantplatform.api.dto.error.ErrorResponse;
+import com.multirestaurantplatform.security.dto.RegisterRequest;
+import com.multirestaurantplatform.security.model.Role;
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource; // Import this
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.Set;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+@TestPropertySource(properties = {
+        "app.jwt.secret=FZrx/+48fJdLdRjR7xESLZFrEbP/3gEUZhfyH9cG3mRWOGmzxZaEhyaZsSgjGCtUD2tKOuQUoqLXWosZbl9DTg=="
+        // You can add other properties here if needed for tests, e.g.:
+        // "logging.level.com.multirestaurantplatform=DEBUG"
+})
+class AuthControllerIntegrationTest {
+@Autowired
+    private MockMvc mockMvc;
+@Autowired
+    private ObjectMapper objectMapper;
+@Autowired
+    private UserRepository userRepository;
+@BeforeEach
+    void setUp() {
+        userRepository.deleteAll();
+    }
+@Test
+    void registerUser_whenValidRequest_shouldReturnCreatedAndSuccessMessage() throws Exception {
+        // Arrange
+        RegisterRequest registerRequest = new RegisterRequest();
+        registerRequest.setUsername("newuser");
+        registerRequest.setEmail("newuser@example.com");
+        registerRequest.setPassword("Password123!");
+        registerRequest.setRoles(Set.of(Role.CUSTOMER));
+// Act & Assert
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_PLAIN))
+                .andExpect(content().string("User registered successfully with username: newuser"));
+assertTrue(userRepository.existsByUsername("newuser"));
+    }
+@Test
+    void registerUser_whenUsernameAlreadyExists_shouldReturnConflict() throws Exception {
+        // Arrange: Create an initial user
+        RegisterRequest initialRequest = new RegisterRequest();
+        initialRequest.setUsername("existinguser");
+        initialRequest.setEmail("existing@example.com");
+        initialRequest.setPassword("Password123!");
+        initialRequest.setRoles(Set.of(Role.CUSTOMER));
+mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(initialRequest)))
+                .andExpect(status().isCreated());
+// Attempt to register with the same username
+        RegisterRequest duplicateUsernameRequest = new RegisterRequest();
+        duplicateUsernameRequest.setUsername("existinguser");
+        duplicateUsernameRequest.setEmail("another@example.com");
+        duplicateUsernameRequest.setPassword("Password456!");
+        duplicateUsernameRequest.setRoles(Set.of(Role.CUSTOMER));
+// Act & Assert
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicateUsernameRequest)))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message", containsString("Error: Username 'existinguser' is already taken!")))
+                .andExpect(jsonPath("$.path").value("/api/v1/auth/register"))
+                .andReturn();
+String responseBody = result.getResponse().getContentAsString();
+        ErrorResponse errorResponse = objectMapper.readValue(responseBody, ErrorResponse.class);
+        assertNotNull(errorResponse.timestamp()); // Corrected accessor
+    }
+// TODO: Add test for duplicate email
+    // TODO: Add tests for validation failures (e.g., blank username, short password) -> should return 400
+}
+File: backend/api/src/test/resources/application.properties
+# File: backend/api/src/test/resources/application.properties
+# Override JWT secret for testing
+# Replace this with your own generated Base64 encoded secret for testing
+app.jwt.expiration-ms=3600000
+app.jwt.token-prefix=Bearer
+# You can also override other properties for tests if needed, e.g.,
+# spring.jpa.show-sql=false
+# logging.level.com.multirestaurantplatform=DEBUG
+File: backend/build.gradle
+// File: multi-restaurant-platform/backend/build.gradle
+plugins {
+    id 'java'
+}
+description = 'Parent module for all backend services'
+// No specific dependencies or plugins here yet,
+// as most will be in the individual microservice modules.
+// This file primarily serves as a marker for the 'backend' project
+// and can be used for shared configurations among all backend modules later.
+File: backend/common/build.gradle
+plugins {
+    id 'java-library'
+}
+description = 'The common module containing shared classes like base entities, DTOs, exceptions, etc.'
+dependencies {
+    // JPA API for annotations like @Entity, @Id, @MappedSuperclass etc.
+    // Version managed by Spring Boot BOM imported in root project
+    api 'jakarta.persistence:jakarta.persistence-api'
+// Spring Data JPA starter - Version managed by Spring Boot BOM
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+// Lombok dependencies are now managed in the root build.gradle's subprojects block
+}
+File: backend/common/src/main/java/com/multirestaurantplatform/common/exception/AppException.java
+package com.multirestaurantplatform.common.exception;
+public abstract class AppException extends RuntimeException {
+public AppException(String message) {
+        super(message);
+    }
+public AppException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+File: backend/common/src/main/java/com/multirestaurantplatform/common/exception/BadRequestException.java
+package com.multirestaurantplatform.common.exception;
+public class BadRequestException extends AppException {
+public BadRequestException(String message) {
+        super(message);
+    }
+public BadRequestException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+File: backend/common/src/main/java/com/multirestaurantplatform/common/exception/ConflictException.java
+package com.multirestaurantplatform.common.exception;
+public class ConflictException extends AppException {
+public ConflictException(String message) {
+        super(message);
+    }
+public ConflictException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+File: backend/common/src/main/java/com/multirestaurantplatform/common/exception/ResourceNotFoundException.java
+package com.multirestaurantplatform.common.exception;
+public class ResourceNotFoundException extends AppException {
+public ResourceNotFoundException(String message) {
+        super(message);
+    }
+public ResourceNotFoundException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+File: backend/common/src/main/java/com/multirestaurantplatform/common/model/BaseEntity.java
+package com.multirestaurantplatform.common.model;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import java.io.Serializable;
+import java.time.Instant;
+import java.util.Objects;
+@Getter
+@Setter
+@MappedSuperclass // Specifies that this is a base class for entities and its fields should be mapped to the columns of the inheriting entity's table.
+public abstract class BaseEntity implements Serializable {
+private static final long serialVersionUID = 1L; // Recommended for Serializable classes
+@Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // Auto-incrementing ID strategy suitable for PostgreSQL/H2
+    private Long id;
+@CreationTimestamp // Automatically set the timestamp when the entity is first persisted
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+@UpdateTimestamp // Automatically update the timestamp when the entity is updated
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+// --- Optional: hashCode() and equals() based on ID ---
+    // Useful for JPA entity comparisons, especially within collections.
+@Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BaseEntity that = (BaseEntity) o;
+        // Use ID for equality check if it's not null, otherwise rely on object identity
+        return id != null && Objects.equals(id, that.id);
+    }
+@Override
+    public int hashCode() {
+        // Use getClass().hashCode() to ensure consistency across different entity types
+        return id != null ? Objects.hash(getClass().hashCode(), id) : super.hashCode();
+        // Or simply: return getClass().hashCode(); // If ID is sufficient for hash-based collections before persistence
+    }
+}
+File: backend/menu/build.gradle
+// File: multi-restaurant-platform/backend/menu/build.gradle
+// Replace menu with menu, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+description = 'The menu module' // e.g., 'The menu module'
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}
+File: backend/order/build.gradle
+// File: multi-restaurant-platform/backend/order/build.gradle
+// Replace order with order, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+description = 'The order module' // e.g., 'The order module'
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}
+File: backend/payment/build.gradle
+// File: multi-restaurant-platform/backend/payment/build.gradle
+// Replace payment with payment, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+description = 'The payment module' // e.g., 'The payment module'
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}
+File: backend/print/build.gradle
+// File: multi-restaurant-platform/backend/print/build.gradle
+// Replace print with print, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+description = 'The print module' // e.g., 'The print module'
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}
+File: backend/restaurant/build.gradle
+// File: multi-restaurant-platform/backend/restaurant/build.gradle
+// Replace restaurant with restaurant, security, etc.
+plugins {
+    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+}
+description = 'The restaurant module' // e.g., 'The restaurant module'
+dependencies {
+    // Module-specific dependencies will be added here later
+    // Example:
+    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+}
+File: backend/security/build.gradle
+// File: multi-restaurant-platform/backend/security/build.gradle
+plugins {
+    id 'java-library'
+}
+// Updated description
+description = 'The security module handling authentication, authorization, users, roles, JWT, etc.'
+// Define jjwt version for consistency
+ext {
+    jjwtVersion = '0.12.5' // Use a recent stable version of JJWT
+}
+dependencies {
+    // Dependency on the common module (for BaseEntity, etc.)
+    implementation project(':backend:common')
+// Spring Boot Security Starter (version managed by BOM in root)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+// Jakarta Bean Validation API
+    api 'jakarta.validation:jakarta.validation-api'
+// Spring Boot Validation Starter
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+// --- Jakarta Servlet API ---
+    // This is needed because classes like JwtAuthenticationFilter and JwtAuthenticationEntryPoint
+    // use HttpServletRequest, HttpServletResponse, ServletException, etc.
+    // These are not automatically brought in by spring-boot-starter-security for a java-library module.
+    // The version will be managed by Spring Boot's dependency management.
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
+// Lombok is inherited from the root build.gradle's subprojects block
+// --- JWT Dependencies ---
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/config/JwtAuthenticationEntryPoint.java
+package com.multirestaurantplatform.security.config; // Or your chosen package for this class
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.stereotype.Component;
+import java.io.IOException;
+@Component // Marks this as a Spring component
+public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
+private static final Logger LOGGER = LoggerFactory.getLogger(JwtAuthenticationEntryPoint.class);
+/**
+     * This method is invoked when an unauthenticated user attempts to access a secured REST resource.
+     * It sends an HTTP 401 Unauthorized response.
+     *
+     * @param request       that resulted in an <code>AuthenticationException</code>
+     * @param response      so that the user agent can begin authentication
+     * @param authException that caused the invocation
+     */
+    @Override
+    public void commence(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException authException
+    ) throws IOException, ServletException {
+        // Log the unauthorized attempt for monitoring/debugging purposes
+        LOGGER.error("Unauthorized error: {}. Path: {}", authException.getMessage(), request.getRequestURI());
+// Send an HTTP 401 Unauthorized error back to the client
+        // You can customize the response further if needed, e.g., by sending a JSON body
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error: Unauthorized - " + authException.getMessage());
+    }
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/config/SecurityConfig.java
+package com.multirestaurantplatform.security.config;
+import com.multirestaurantplatform.security.filter.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer; // Import for frameOptions
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+// import org.springframework.boot.autoconfigure.security.servlet.PathRequest; // Not strictly needed if using specific path matchers
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true, securedEnabled = true, jsr250Enabled = true)
+@RequiredArgsConstructor
+public class SecurityConfig {
+private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationEntryPoint unauthorizedHandler;
+@Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+@Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+@Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(unauthorizedHandler)
+                )
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/v1/auth/**",         // Login, Register
+                                "/api/v1/test/health",     // Health check path
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/webjars/**",
+                                "/h2-console/**"          // Permit H2 console access
+                        ).permitAll()
+                        .anyRequest().authenticated() // All other requests need authentication
+                )
+                // Configure headers, specifically for X-Frame-Options to allow H2 console
+                // This is a common way to allow H2 console frames.
+                // Spring Security 6.x new way to configure headers.
+                .headers(headers ->
+                        headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin // Allow framing from same origin for H2 console
+                                // Or, if sameOrigin doesn't work for some reason with H2 console's specific setup:
+                                // headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable) // Less secure, but might be needed for H2 console
+                        )
+                );
+http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+return http.build();
+    }
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/dto/JwtAuthenticationResponse.java
+package com.multirestaurantplatform.security.dto;
+import lombok.Data;
+import lombok.NonNull; // Or use constructor-based injection if preferred over @NonNull on field
+@Data // Lombok: Generates getters, setters, toString, equals, hashCode.
+public class JwtAuthenticationResponse {
+@NonNull // Ensures token is not null when using the constructor generated by @Data or if a @RequiredArgsConstructor is used.
+    private String accessToken;
+    private String tokenType = "Bearer"; // Standard token type
+// Constructor
+    public JwtAuthenticationResponse(String accessToken) {
+        this.accessToken = accessToken;
+    }
+// If you want to include more user details in the response (optional):
+    // private String username;
+    // private java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> authorities;
+    // public JwtAuthenticationResponse(String accessToken, String username, java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> authorities) {
+    //     this.accessToken = accessToken;
+    //     this.username = username;
+    //     this.authorities = authorities;
+    // }
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/dto/LoginRequest.java
+package com.multirestaurantplatform.security.dto;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+@Data // Lombok: Generates getters, setters, toString, equals, hashCode, and a constructor for all final fields.
+public class LoginRequest {
+@NotBlank(message = "Username cannot be blank")
+    private String username;
+@NotBlank(message = "Password cannot be blank")
+    private String password;
+// No-args constructor (Lombok @Data might provide one, but explicit can be good)
+    public LoginRequest() {
+    }
+// All-args constructor (Lombok @Data will provide one for final fields, but this is explicit)
+    public LoginRequest(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/dto/RegisterRequest.java
+package com.multirestaurantplatform.security.dto;
+import com.multirestaurantplatform.security.model.Role; // Assuming Role enum is in model package
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
+import lombok.Data; // Lombok annotation for boilerplate code (getters, setters, equals, hashCode, toString)
+import java.util.Set;
+@Data // Bundles @Getter, @Setter, @ToString, @EqualsAndHashCode, @RequiredArgsConstructor
+public class RegisterRequest {
+@NotBlank(message = "Username cannot be blank")
+    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+    private String username;
+@NotBlank(message = "Password cannot be blank")
+    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters") // Validate length before hashing
+    private String password;
+@NotBlank(message = "Email cannot be blank")
+    @Email(message = "Email should be valid")
+    @Size(max = 100, message = "Email cannot exceed 100 characters")
+    private String email;
+@NotEmpty(message = "User must have at least one role")
+    private Set<Role> roles; // Specify the roles during registration (e.g., CUSTOMER)
+                            // In a real app, you might default this or derive it differently.
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/dto/UserResponseDto.java
+package com.multirestaurantplatform.security.dto;
+import com.multirestaurantplatform.security.model.Role; // Assuming Role is in this package
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import java.util.Set;
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserResponseDto {
+    private Long id;
+    private String username;
+    private String email;
+    private Set<Role> roles;
+// We can add a static factory method or use a mapping library like MapStruct later
+    // for cleaner conversion from User entity to UserResponseDto if needed.
+    // For now, manual mapping in the controller/service is fine for simplicity.
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/filter/JwtAuthenticationFilter.java
+package com.multirestaurantplatform.security.filter;
+import com.multirestaurantplatform.security.service.JwtService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value; // Ensure this import is present
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+import java.io.IOException;
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+private static final Logger LOGGER = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+@Value("${app.jwt.token-prefix}")
+    private String tokenPrefix; // Example: "Bearer"
+private static final String AUTHORIZATION_HEADER = "Authorization";
+@Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
+LOGGER.debug("JwtAuthenticationFilter: Processing request for URI: {}", request.getRequestURI());
+        LOGGER.debug("JwtAuthenticationFilter: Injected tokenPrefix: [{}]", tokenPrefix); // Log the injected prefix
+try {
+            final String authHeader = request.getHeader(AUTHORIZATION_HEADER);
+            LOGGER.debug("JwtAuthenticationFilter: Authorization Header: [{}]", authHeader);
+if (!StringUtils.hasText(tokenPrefix)) {
+                LOGGER.error("JwtAuthenticationFilter: tokenPrefix is not configured or empty! Check 'app.jwt.token-prefix' in properties.");
+                filterChain.doFilter(request, response);
+                return;
+            }
+final String expectedPrefixWithSpace = tokenPrefix + " ";
+if (!StringUtils.hasText(authHeader) || !authHeader.startsWith(expectedPrefixWithSpace)) {
+                LOGGER.debug("JwtAuthenticationFilter: JWT Token does not begin with Bearer string or is missing. Header: [{}], Expected Prefix: [{}]", authHeader, expectedPrefixWithSpace);
+                filterChain.doFilter(request, response);
+                return;
+            }
+final String jwt = authHeader.substring(expectedPrefixWithSpace.length());
+            LOGGER.debug("JwtAuthenticationFilter: Extracted JWT: [{}]", jwt);
+final String username = jwtService.extractUsername(jwt);
+            LOGGER.debug("JwtAuthenticationFilter: Username extracted from JWT: [{}]", username);
+if (StringUtils.hasText(username) && SecurityContextHolder.getContext().getAuthentication() == null) {
+                LOGGER.debug("JwtAuthenticationFilter: Username [{}] extracted, SecurityContext is null. Attempting to load UserDetails.", username);
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+if (userDetails != null) {
+                    LOGGER.debug("JwtAuthenticationFilter: UserDetails loaded for username: [{}], Authorities: {}", userDetails.getUsername(), userDetails.getAuthorities());
+                    boolean isTokenValid = jwtService.isTokenValid(jwt, userDetails);
+                    LOGGER.debug("JwtAuthenticationFilter: Is token valid for username [{}]: {}", username, isTokenValid);
+if (isTokenValid) {
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities()
+                        );
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                        LOGGER.info("JwtAuthenticationFilter: Successfully authenticated user [{}] and set SecurityContext.", username);
+                    } else {
+                        LOGGER.warn("JwtAuthenticationFilter: JWT token validation failed for user: {}", username);
+                    }
+                } else {
+                    LOGGER.warn("JwtAuthenticationFilter: UserDetails not found for username extracted from token: {}", username);
+                }
+            } else {
+                LOGGER.debug("JwtAuthenticationFilter: Username not extracted from JWT or SecurityContext already contains authentication. Username: [{}], Auth: {}", username, SecurityContextHolder.getContext().getAuthentication());
+            }
+        } catch (Exception e) {
+            LOGGER.error("JwtAuthenticationFilter: Cannot set user authentication. Error: {}", e.getMessage(), e);
+            // SecurityContextHolder.clearContext(); // Consider if necessary
+        }
+filterChain.doFilter(request, response);
+    }
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/model/Role.java
+package com.multirestaurantplatform.security.model;
+/**
+ * Defines the user roles within the application.
+ * Corresponds to authorities in Spring Security.
+ */
+public enum Role {
+    CUSTOMER,        // Regular customer placing orders
+    RESTAURANT_ADMIN,// Manages a specific restaurant (menus, orders, settings)
+    ADMIN            // Platform administrator (manages restaurants, users, platform settings)
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/model/User.java
+package com.multirestaurantplatform.security.model;
+import com.multirestaurantplatform.common.model.BaseEntity;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor; // Example constructor if needed
+import lombok.AllArgsConstructor; // Example constructor if needed
+import java.util.Set;
+@Getter
+@Setter
+@NoArgsConstructor // Generates a no-args constructor (required by JPA)
+@AllArgsConstructor // Optional: Generates an all-args constructor
+@Entity
+@Table(name = "users", // Explicitly naming the table "users"
+       uniqueConstraints = { // Adding unique constraints at the table level
+           @UniqueConstraint(columnNames = "username"),
+           @UniqueConstraint(columnNames = "email")
+       })
+public class User extends BaseEntity {
+@NotBlank // From jakarta.validation.constraints - ensures not null and not just whitespace
+    @Size(min = 3, max = 50)
+    @Column(nullable = false, unique = true, length = 50)
+    private String username;
+@NotBlank
+    @Size(min = 8, max = 100) // Store hashed passwords, so length should be sufficient
+    @Column(nullable = false, length = 100)
+    private String password; // Store hashed passwords ONLY
+@NotBlank
+    @Email // Validates if the string is a well-formed email address
+    @Size(max = 100)
+    @Column(nullable = false, unique = true, length = 100)
+    private String email;
+@NotNull // A user must have at least one role
+    @Enumerated(EnumType.STRING) // Store the enum name (e.g., "ADMIN") as a string in the DB
+    @ElementCollection(fetch = FetchType.EAGER) // Store roles in a separate table (user_roles)
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id")) // Customize the join table
+    @Column(name = "role", nullable = false) // Column name in the join table
+    private Set<Role> roles;
+// Optional: Add other fields like firstName, lastName, phoneNumber, isActive, etc. later
+    // private String firstName;
+    // private String lastName;
+    // private String phoneNumber;
+    // private boolean isActive = true; // Default to active
+// Inherits id, createdAt, updatedAt from BaseEntity
+    // Inherits equals() and hashCode() from BaseEntity (based on ID)
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/repository/UserRepository.java
+package com.multirestaurantplatform.security.repository;
+import com.multirestaurantplatform.security.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.Optional;
+/**
+ * Spring Data JPA repository for the User entity.
+ */
+@Repository // Indicates this is a Spring bean and provides exception translation
+public interface UserRepository extends JpaRepository<User, Long> { // <EntityType, IdType>
+// --- Spring Data JPA Query Methods ---
+    // Implementations are automatically generated based on method names.
+/**
+     * Finds a user by their username. Spring Data JPA generates the query.
+     * Consider if username search should be case-insensitive based on requirements.
+     * @param username The username to search for.
+     * @return An Optional containing the found User or empty if not found.
+     */
+    Optional<User> findByUsername(String username);
+/**
+     * Finds a user by their email address. Spring Data JPA generates the query.
+     * Consider if email search should be case-insensitive.
+     * @param email The email address to search for.
+     * @return An Optional containing the found User or empty if not found.
+     */
+    Optional<User> findByEmail(String email);
+/**
+     * Checks if a user exists with the given username.
+     * More efficient than findByUsername().isPresent().
+     * @param username The username to check.
+     * @return true if a user with the username exists, false otherwise.
+     */
+    boolean existsByUsername(String username);
+/**
+     * Checks if a user exists with the given email address.
+     * More efficient than findByEmail().isPresent().
+     * @param email The email address to check.
+     * @return true if a user with the email exists, false otherwise.
+     */
+    boolean existsByEmail(String email);
+// We can add more complex queries using @Query annotation later if needed.
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/service/JwtService.java
+package com.multirestaurantplatform.security.service;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+import javax.crypto.SecretKey;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+@Service
+public class JwtService {
+private static final Logger LOGGER = LoggerFactory.getLogger(JwtService.class);
+@Value("${app.jwt.secret}")
+    private String jwtSecretString;
+@Value("${app.jwt.expiration-ms}")
+    private long jwtExpirationMs;
+/**
+     * HMAC key derived from {@code jwtSecretString}. The type must be {@link SecretKey}
+     * so that the new JJWT 0.12 verify/sign methods resolve without a cast.
+     */
+    private SecretKey signingKey;
+/**
+     * Convert the Base64‑encoded secret string into a {@link SecretKey} once the bean is ready.
+     */
+    @PostConstruct
+    public void init() {
+        if (jwtSecretString == null || jwtSecretString.trim().isEmpty()) {
+            LOGGER.error("JWT secret key is null or empty – check app.jwt.secret");
+            throw new IllegalArgumentException("JWT secret key cannot be null or empty");
+        }
+        try {
+            byte[] keyBytes = Decoders.BASE64.decode(jwtSecretString);
+            this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+        } catch (Exception ex) {
+            LOGGER.error("Invalid Base64 value for app.jwt.secret: {}", ex.getMessage());
+            throw new IllegalArgumentException("Invalid JWT secret key", ex);
+        }
+    }
+/* ---------------------------------------------------------------------
+     *  Public API
+     * ------------------------------------------------------------------ */
+public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+public <T> T extractClaim(String token, Function<Claims, T> resolver) {
+        return resolver.apply(extractAllClaims(token));
+    }
+public String generateToken(UserDetails userDetails) {
+        return generateToken(new HashMap<>(), userDetails);
+    }
+/**
+     * Build a JWS with optional extra claims using the JJWT 0.12 fluent API
+     * (no deprecated setters).
+     */
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .claims()                   // switch into the Claims builder
+                .add(extraClaims)       // merge custom claims
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + jwtExpirationMs))
+                .and()                  // back to the main builder
+                .signWith(signingKey, Jwts.SIG.HS256)
+                .compact();
+    }
+public boolean isTokenValid(String token, UserDetails userDetails) {
+        try {
+            return userDetails.getUsername().equals(extractUsername(token)) && !isTokenExpired(token);
+        } catch (io.jsonwebtoken.JwtException ex) {
+            LOGGER.warn("JWT validation failed for user {}: {}", userDetails.getUsername(), ex.getMessage());
+            return false;
+        }
+    }
+/* ---------------------------------------------------------------------
+     *  Private helpers
+     * ------------------------------------------------------------------ */
+private boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+private Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+/**
+     * Parse and verify the supplied compact JWS, returning its {@link Claims} payload.
+     */
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(signingKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/service/UserDetailsServiceImpl.java
+package com.multirestaurantplatform.security.service;
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.Collection;
+import java.util.stream.Collectors;
+@Service
+@RequiredArgsConstructor
+public class UserDetailsServiceImpl implements UserDetailsService {
+private static final Logger LOGGER = LoggerFactory.getLogger(UserDetailsServiceImpl.class);
+private final UserRepository userRepository;
+@Override
+    @Transactional(readOnly = true) // Good practice for read operations
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        LOGGER.debug("Attempting to load user by username: {}", username);
+User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", username);
+                    return new UsernameNotFoundException("User not found with username: " + username);
+                });
+LOGGER.info("User found: {}. Stored hashed password: [PROTECTED]", user.getUsername()); // Don't log the actual hash unless for very specific, temporary debugging.
+        // For temporary deep debugging, you could log user.getPassword() but remove it immediately after.
+        // LOGGER.debug("Hashed password from DB for user {}: {}", username, user.getPassword());
+Collection<? extends GrantedAuthority> authorities = user.getRoles().stream()
+                .map(role -> {
+                    LOGGER.debug("Mapping role: {} to authority: ROLE_{}", role.name(), role.name());
+                    return new SimpleGrantedAuthority("ROLE_" + role.name());
+                })
+                .collect(Collectors.toSet());
+LOGGER.debug("Authorities for user {}: {}", username, authorities);
+return new org.springframework.security.core.userdetails.User(
+                user.getUsername(),
+                user.getPassword(), // This is the stored hashed password
+                true, // enabled
+                true, // accountNonExpired
+                true, // credentialsNonExpired
+                true, // accountNonLocked
+                authorities);
+    }
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/service/UserService.java
+package com.multirestaurantplatform.security.service;
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException; // Import
+import com.multirestaurantplatform.security.dto.RegisterRequest;
+import com.multirestaurantplatform.security.model.User;
+public interface UserService {
+    /**
+     * Registers a new user based on the provided request data.
+     * Handles password encoding and checks for existing username/email.
+     *
+     * @param registerRequest The user registration data.
+     * @return The newly created User entity.
+     * @throws com.multirestaurantplatform.common.exception.ConflictException if username or email already exists.
+     */
+    User registerUser(RegisterRequest registerRequest);
+/**
+     * Finds a user by their username.
+     *
+     * @param username The username to search for.
+     * @return The found User entity.
+     * @throws ResourceNotFoundException if no user is found with the given username.
+     */
+    User findUserByUsername(String username);
+/**
+     * Finds a user by their ID.
+     *
+     * @param id The ID of the user to search for.
+     * @return The found User entity.
+     * @throws ResourceNotFoundException if no user is found with the given ID.
+     */
+    User findUserById(Long id);
+/**
+     * Finds a user by their email address.
+     *
+     * @param email The email address to search for.
+     * @return The found User entity.
+     * @throws ResourceNotFoundException if no user is found with the given email.
+     */
+    User findUserByEmail(String email);
+// Add other methods later, e.g.:
+    // User updateUserProfile(Long userId, UpdateProfileRequest request);
+}
+File: backend/security/src/main/java/com/multirestaurantplatform/security/service/UserServiceImpl.java
+package com.multirestaurantplatform.security.service;
+import com.multirestaurantplatform.common.exception.ConflictException;
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException; // Import
+import com.multirestaurantplatform.security.dto.RegisterRequest;
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+@Service
+@RequiredArgsConstructor // Lombok: Creates constructor injecting final fields
+public class UserServiceImpl implements UserService {
+private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder; // Inject the PasswordEncoder bean
+@Override
+    @Transactional // Use transaction for operations involving database writes/reads
+    public User registerUser(RegisterRequest request) {
+        // 1. Check if username already exists
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new ConflictException("Error: Username '" + request.getUsername() + "' is already taken!");
+        }
+// 2. Check if email already exists
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new ConflictException("Error: Email '" + request.getEmail() + "' is already in use!");
+        }
+// 3. Create new user's account
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRoles(request.getRoles());
+return userRepository.save(user);
+    }
+@Override
+    @Transactional(readOnly = true) // Good practice for read operations
+    public User findUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+    }
+@Override
+    @Transactional(readOnly = true) // Good practice for read operations
+    public User findUserById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
+    }
+@Override
+    @Transactional(readOnly = true) // Good practice for read operations
+    public User findUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+    }
+}
+File: build.gradle
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.5' apply false // Define Spring Boot plugin version for all modules
+    id 'io.spring.dependency-management' version '1.1.4' // Define & apply dependency management globally
+}
+// Define common versions in extra properties for easy updates
+ext {
+    lombokVersion = '1.18.32' // Use a recent, stable Lombok version
+    springBootVersion = '3.2.5' // Match the plugin version
+    springDocOpenapiVersion = '2.5.0' // Define springdoc version here too
+}
+allprojects {
+    group = 'com.multirestaurantplatform'
+    version = '0.0.1-SNAPSHOT'
+repositories {
+        mavenCentral()
+    }
+// Apply dependency management to ALL projects
+    apply plugin: 'io.spring.dependency-management'
+dependencyManagement {
+        imports {
+            // Import Spring Boot's BOM - this defines versions for Boot dependencies
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        }
+        dependencies {
+            // Define versions for other direct dependencies we want to manage
+            dependency "org.projectlombok:lombok:${lombokVersion}"
+            dependency "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springDocOpenapiVersion}"
+        }
+    }
+}
+subprojects {
+    apply plugin: 'java' // Apply java plugin to all subprojects
+java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+// Common dependencies for all subprojects
+    dependencies {
+        // Lombok - version is managed by dependencyManagement
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testAnnotationProcessor 'org.projectlombok:lombok'
+    }
+tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+    }
+tasks.withType(Test) {
+        useJUnitPlatform()
+    }
+}
+File: docker-compose.yml
+version: '3.8'
+services:
+  multi-restaurant-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multi-restaurant-platform-backend
+    container_name: multi-restaurant-platform
+    ports:
+      - "8081:8080" # HOST_PORT:CONTAINER_PORT - Access on Mac via 8081, app in container runs on 8080
+    environment:
+      - SERVER_PORT=8080 # Spring Boot app inside container will listen on port 8080
+      # - SPRING_PROFILES_ACTIVE=dev
+    restart: unless-stopped
+---------------------------------------- EMPTY FOLDERS ----------------------------------------
+Folder: backend/admin/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/admin/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/admin/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/admin/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/api/src/main/java/com/multirestaurantplatform/api/payload (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/common/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/common/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/common/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/menu/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/menu/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/menu/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/menu/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/order/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/order/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/order/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/order/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/payment/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/payment/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/payment/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/payment/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/print/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/print/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/print/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/print/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/restaurant/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/restaurant/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/restaurant/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/restaurant/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/security/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/security/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
+Folder: backend/security/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
+LLM Instructions:
+Hello LLM, I need your assistance in developing and improving my application while being careful not breaking the current working app. The project already been started and is progressing. the "Multi-Restaurant Platform." I will guide you on the current stage of development, and I expect you to act as a senior full-stack developer, leveraging your knowledge of the technologies involved and the project details I provide.
+**1. Introduction to the Multi-Restaurant Platform**
+The "Multi-Restaurant Platform" is a comprehensive, Docker-containerized Spring Boot application designed to serve as a complete solution for restaurant management, online ordering, and delivery services. Its core capability is to support multiple distinct restaurants on a single platform, each with its own configurable menus, dedicated administrators, and operational settings.
+**Key Features:**
+* **Multi-restaurant Support:** Enables onboarding and management of numerous restaurants.
+* **User Authentication & Authorization:** Secure, role-based access control (Roles: ADMIN, RESTAURANT_ADMIN, CUSTOMER) using JWT (JSON Web Tokens).
+* **Menu Management:** Allows restaurants to create, customize, and manage their menus, including categories and individual food/beverage items.
+* **Order Processing System:** Facilitates handling of customer orders through various statuses from placement to delivery/completion.
+* **Payment Integration:** Designed for payment processing, initially with a mock Stripe implementation, with plans for full Stripe integration.
+* **WebSocket Printing System:** Enables automated, real-time printing of receipts and kitchen tickets directly from the browser.
+* **Content Management System (CMS):** Includes a built-in CMS for managing platform-wide content.
+* **Admin Dashboard:** Provides comprehensive tools for platform administrators to configure and manage the system.
+**Technology Stack:**
+* **Programming Language:** Java 21
+* **Framework:** Spring Boot 3.x (The project aims to use recent versions like 3.2.5 or higher, potentially up to 3.4.x as mentioned in project documentation)
+* **Security:** Spring Security, JWT
+* **Data Persistence:** Spring Data JPA
+* **Database:** PostgreSQL (for production environments), H2 (for development and testing)
+* **Database Migration:** Flyway
+* **Real-time Communication:** WebSockets
+* **Build Tool:** Gradle
+* **Containerization:** Docker
+* **Utilities:** Lombok
+**2. Development Roadmap and Plan**
+This roadmap outlines the key phases and steps involved in building and enhancing the Multi-Restaurant Platform. While presented sequentially, actual development might iterate or address steps out of this specific order based on project priorities (e.g., API documentation might be initiated early, or specific modules prioritized differently). I will inform you of the primary focus, but always use the provided project files as the definitive source for the current state of implemented features.
+**Phase 0: Project Setup & Foundation**
+* **Step 0.1: Local Development Environment Setup**
+    * Install Java 21 SDK, Gradle, Docker, and an IDE (e.g., IntelliJ IDEA, Eclipse).
+    * Set up PostgreSQL and H2 database instances.
+    * Clone the project repository and ensure a clean build.
+* **Step 0.2: Version Control Strategy**
+    * Confirm Git branching strategy (e.g., Gitflow, feature branches).
+* **Step 0.3: Project Structure Review**
+    * Understand the multi-module Gradle setup (`backend`, `api`, `common`, `security`, `restaurant`, `menu`, `order`, `payment`, `print`, `admin`).
+    * Review root `build.gradle` and `settings.gradle`.
+* **Step 0.4: Initial Database Schema with Flyway**
+    * Review/Implement initial Flyway migration scripts (e.g., `backend/api/src/main/resources/db/migration/V1_init_schema.sql`, `V2_initial_data.sql`).
+**Phase 1: Core Backend Modules - Entities, Repositories, Services, Initial APIs**
+* **Step 1.1: `common` Module**
+* **Step 1.2: User Management & `security` Module**
+* **Step 1.3: `restaurant` Module**
+* **Step 1.4: `menu` Module**
+* **Step 1.5: `order` Module**
+* **Step 1.6: `payment` Module (Mock Implementation First)**
+* **Step 1.7: `admin` Module**
+(Note: Verify the implementation status of these modules from the provided project files, as not all may be started or completed at any given time.)
+**Phase 2: API Refinement & Documentation**
+* **Step 2.1: API Design Consistency**
+* **Step 2.2: OpenAPI/Swagger Integration (Note: This may have already been started or be partially implemented; please check project files for current status.)**
+**Phase 3: Real-time Features & Advanced Functionality**
+* **Step 3.1: WebSocket Printing System (`print` module)**
+* **Step 3.2: Full Payment Integration (Stripe)**
+* **Step 3.3: Content Management System (CMS)**
+**Phase 4: Testing & Quality Assurance**
+* **Step 4.1: Unit Testing**
+* **Step 4.2: Integration Testing**
+* **Step 4.3: Security Testing**
+**Phase 5: Containerization & Deployment Preparation**
+* **Step 5.1: Dockerfile Optimization**
+* **Step 5.2: `docker-compose.yml` Configuration**
+* **Step 5.3: Database Migrations for Production**
+**Phase 6: CI/CD (Continuous Integration/Continuous Deployment)**
+* **Step 6.1: CI Pipeline Setup**
+* **Step 6.2: CD Pipeline Setup (Optional for now)**
+**Phase 7: Frontend Development (Placeholder - to be detailed later)**
+**Phase 8: Production Deployment & Monitoring**
+**Phase 9: Ongoing Maintenance & Feature Enhancements**
+**3. Instructions for the LLM**
+To effectively assist me, please adhere to the following:
+* **Contextual Awareness:** I will provide you with a text file that contains a snapshot of the project's structure, key file contents, and a summary. Please consider this your primary source of truth for the project's current state and architecture.
+* **Current Step Focus:** I will specify the current phase and step from the roadmap above that we are working on. Please focus your advice and code generation on this specific step.
+* **Code Generation:** When providing code examples, please ensure they are consistent with Java 21, Spring Boot 3.x, and the other technologies listed in the tech stack. Refer to existing code patterns in the provided text file if available.
+* **Best Practices:** Offer advice based on industry best practices, security considerations, and performance optimization.
+* **Clarity and Explanation:** Explain your suggestions and code clearly, especially the reasoning behind architectural decisions or complex logic.
+* **Iterative Development:** We will work iteratively. I may ask for refinements or alternative solutions.
+By following these guidelines, we can have a productive and efficient collaboration. Try to guess the current state of the project so that we can continue from there. Ask to provide you the relavant files like java classes, build.gradle, settings.gradle, application.properties, dockerfile etc. And guide me with the next steps. Carefully check content of the project what is currently done. first create the step and ask me if i want to proceed with your suggestion. Dont ask me what specific aspect of the project I'd like to discuss next. you decide and ask me if your plan is correct and if i want to proceed with your plan
