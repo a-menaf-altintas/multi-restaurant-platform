@@ -42,6 +42,10 @@ dependencies {
     // --- Testing (Version managed by BOM in root project) ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test' // For @WithMockUser etc.
+
+
     // Lombok dependencies are managed in the root build.gradle
 }
 
