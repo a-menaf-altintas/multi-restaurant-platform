@@ -1,13 +1,24 @@
-// File: multi-restaurant-platform/backend/restaurant/build.gradle
-// Replace restaurant with restaurant, security, etc.
 plugins {
-    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+    id 'java-library'
 }
 
-description = 'The restaurant module' // e.g., 'The restaurant module'
+description = 'The restaurant module'
 
 dependencies {
-    // Module-specific dependencies will be added here later
-    // Example:
-    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+    // Dependency on the common module (for BaseEntity, etc.)
+    implementation project(':backend:common')
+
+    // Dependency on the security module (for User entity)
+    implementation project(':backend:security')
+
+    // Spring Data JPA (version managed by Spring Boot BOM in root project)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Jakarta Validation API (for @NotBlank, @Size, etc. on entities)
+    // This should already be available transitively via spring-boot-starter-web or spring-boot-starter-validation,
+    // but explicitly adding it can be good practice if an entity is in a library module without web dependencies.
+    // The security module also brings it in. Let's assume it's covered.
+    // api 'jakarta.validation:jakarta.validation-api' // If direct validation needed and not pulled transitively
+
+    // Lombok is managed in the root build.gradle
 }

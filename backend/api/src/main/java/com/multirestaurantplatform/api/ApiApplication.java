@@ -7,8 +7,15 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication(scanBasePackages = "com.multirestaurantplatform")
-@EnableJpaRepositories(basePackages = "com.multirestaurantplatform.security.repository")
-@EntityScan(basePackages = {"com.multirestaurantplatform.security.model", "com.multirestaurantplatform.common.model"})
+@EnableJpaRepositories(basePackages = {
+        "com.multirestaurantplatform.security.repository",
+        "com.multirestaurantplatform.restaurant.repository" // Add this
+})
+@EntityScan(basePackages = {
+        "com.multirestaurantplatform.security.model",
+        "com.multirestaurantplatform.common.model",
+        "com.multirestaurantplatform.restaurant.model" // Add this
+})
 public class ApiApplication {
 
     public static void main(String[] args) {
