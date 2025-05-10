@@ -29,7 +29,7 @@ FILES_WITH_CONTENT_BY_NAME = {
     'docker-compose.yml', 'docker-compose.yaml'
 }
 FILES_WITH_CONTENT_BY_EXT = {
-    '.java', '.ts', '.js', '.css', '.scss',
+    '.java', '.ts', '.js', '.css', '.scss', '.sql',
     '.dockerfile' # e.g., backend.dockerfile
 }
 HTML_EXTENSION = '.html'
