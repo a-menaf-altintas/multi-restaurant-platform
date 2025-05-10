@@ -23,13 +23,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class) // Integrates Mockito with JUnit 5
+@ExtendWith(MockitoExtension.class)
 class RestaurantServiceImplTest {
 
-    @Mock // Creates a mock instance of RestaurantRepository
+    @Mock
     private RestaurantRepository restaurantRepository;
 
-    @InjectMocks // Creates an instance of RestaurantServiceImpl and injects the mock(s) into it
+    @InjectMocks
     private RestaurantServiceImpl restaurantService;
 
     private Restaurant restaurant;
@@ -38,7 +38,6 @@ class RestaurantServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        // Initialize common test objects
         restaurant = new Restaurant();
         restaurant.setId(1L);
         restaurant.setName("Test Restaurant");
@@ -54,8 +53,8 @@ class RestaurantServiceImplTest {
         createDto.setPhoneNumber("555-5678");
         createDto.setDescription("A new place to eat.");
 
+        // Initialize updateDto, but set fields in specific tests
         updateDto = new UpdateRestaurantRequestDto();
-        // Update DTO fields will be set in specific tests
     }
 
     // --- Test cases for createRestaurant ---
@@ -63,42 +62,34 @@ class RestaurantServiceImplTest {
     @Test
     @DisplayName("createRestaurant - Success")
     void createRestaurant_whenValidRequest_shouldReturnCreatedRestaurant() {
-        // Arrange
         when(restaurantRepository.findByName(createDto.getName())).thenReturn(Optional.empty());
         when(restaurantRepository.findByEmail(createDto.getEmail())).thenReturn(Optional.empty());
-        // Mock the save operation to return a restaurant with an ID
         when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> {
             Restaurant r = invocation.getArgument(0);
-            r.setId(2L); // Simulate ID generation
+            r.setId(2L);
             return r;
         });
 
-        // Act
         Restaurant createdRestaurant = restaurantService.createRestaurant(createDto);
 
-        // Assert
         assertNotNull(createdRestaurant);
         assertEquals(createDto.getName(), createdRestaurant.getName());
         assertEquals(createDto.getEmail(), createdRestaurant.getEmail());
-        assertEquals(2L, createdRestaurant.getId()); // Check if ID was set
+        assertEquals(2L, createdRestaurant.getId());
         assertTrue(createdRestaurant.isActive());
-        verify(restaurantRepository, times(1)).findByName(createDto.getName());
-        verify(restaurantRepository, times(1)).findByEmail(createDto.getEmail());
-        verify(restaurantRepository, times(1)).save(any(Restaurant.class));
+        verify(restaurantRepository).findByName(createDto.getName());
+        verify(restaurantRepository).findByEmail(createDto.getEmail());
+        verify(restaurantRepository).save(any(Restaurant.class));
     }
 
     @Test
     @DisplayName("createRestaurant - Name Conflict")
     void createRestaurant_whenNameExists_shouldThrowConflictException() {
-        // Arrange
-        when(restaurantRepository.findByName(createDto.getName())).thenReturn(Optional.of(restaurant)); // Existing restaurant with same name
+        when(restaurantRepository.findByName(createDto.getName())).thenReturn(Optional.of(restaurant));
 
-        // Act & Assert
-        ConflictException exception = assertThrows(ConflictException.class, () -> {
-            restaurantService.createRestaurant(createDto);
-        });
+        ConflictException exception = assertThrows(ConflictException.class, () -> restaurantService.createRestaurant(createDto));
         assertEquals("Restaurant with name '" + createDto.getName() + "' already exists.", exception.getMessage());
-        verify(restaurantRepository, times(1)).findByName(createDto.getName());
+        verify(restaurantRepository).findByName(createDto.getName());
         verify(restaurantRepository, never()).findByEmail(anyString());
         verify(restaurantRepository, never()).save(any(Restaurant.class));
     }
@@ -106,17 +97,13 @@ class RestaurantServiceImplTest {
     @Test
     @DisplayName("createRestaurant - Email Conflict")
     void createRestaurant_whenEmailExists_shouldThrowConflictException() {
-        // Arrange
         when(restaurantRepository.findByName(createDto.getName())).thenReturn(Optional.empty());
-        when(restaurantRepository.findByEmail(createDto.getEmail())).thenReturn(Optional.of(restaurant)); // Existing restaurant with same email
+        when(restaurantRepository.findByEmail(createDto.getEmail())).thenReturn(Optional.of(restaurant));
 
-        // Act & Assert
-        ConflictException exception = assertThrows(ConflictException.class, () -> {
-            restaurantService.createRestaurant(createDto);
-        });
+        ConflictException exception = assertThrows(ConflictException.class, () -> restaurantService.createRestaurant(createDto));
         assertEquals("Restaurant with email '" + createDto.getEmail() + "' already exists.", exception.getMessage());
-        verify(restaurantRepository, times(1)).findByName(createDto.getName());
-        verify(restaurantRepository, times(1)).findByEmail(createDto.getEmail());
+        verify(restaurantRepository).findByName(createDto.getName());
+        verify(restaurantRepository).findByEmail(createDto.getEmail());
         verify(restaurantRepository, never()).save(any(Restaurant.class));
     }
 
@@ -125,31 +112,20 @@ class RestaurantServiceImplTest {
     @Test
     @DisplayName("findRestaurantById - Success")
     void findRestaurantById_whenRestaurantExists_shouldReturnRestaurant() {
-        // Arrange
         when(restaurantRepository.findById(1L)).thenReturn(Optional.of(restaurant));
-
-        // Act
         Restaurant foundRestaurant = restaurantService.findRestaurantById(1L);
-
-        // Assert
         assertNotNull(foundRestaurant);
         assertEquals(restaurant.getId(), foundRestaurant.getId());
-        assertEquals(restaurant.getName(), foundRestaurant.getName());
-        verify(restaurantRepository, times(1)).findById(1L);
+        verify(restaurantRepository).findById(1L);
     }
 
     @Test
     @DisplayName("findRestaurantById - Not Found")
     void findRestaurantById_whenRestaurantDoesNotExist_shouldThrowResourceNotFoundException() {
-        // Arrange
         when(restaurantRepository.findById(1L)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
-            restaurantService.findRestaurantById(1L);
-        });
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> restaurantService.findRestaurantById(1L));
         assertEquals("Restaurant not found with ID: 1", exception.getMessage());
-        verify(restaurantRepository, times(1)).findById(1L);
+        verify(restaurantRepository).findById(1L);
     }
 
     // --- Test cases for findAllRestaurants ---
@@ -157,33 +133,22 @@ class RestaurantServiceImplTest {
     @Test
     @DisplayName("findAllRestaurants - Success with Restaurants")
     void findAllRestaurants_whenRestaurantsExist_shouldReturnListOfRestaurants() {
-        // Arrange
         when(restaurantRepository.findAll()).thenReturn(List.of(restaurant));
-
-        // Act
         List<Restaurant> restaurants = restaurantService.findAllRestaurants();
-
-        // Assert
         assertNotNull(restaurants);
         assertFalse(restaurants.isEmpty());
         assertEquals(1, restaurants.size());
-        assertEquals(restaurant.getName(), restaurants.get(0).getName());
-        verify(restaurantRepository, times(1)).findAll();
+        verify(restaurantRepository).findAll();
     }
 
     @Test
     @DisplayName("findAllRestaurants - Success with No Restaurants")
     void findAllRestaurants_whenNoRestaurantsExist_shouldReturnEmptyList() {
-        // Arrange
         when(restaurantRepository.findAll()).thenReturn(Collections.emptyList());
-
-        // Act
         List<Restaurant> restaurants = restaurantService.findAllRestaurants();
-
-        // Assert
         assertNotNull(restaurants);
         assertTrue(restaurants.isEmpty());
-        verify(restaurantRepository, times(1)).findAll();
+        verify(restaurantRepository).findAll();
     }
 
     // --- Test cases for updateRestaurant ---
@@ -191,24 +156,23 @@ class RestaurantServiceImplTest {
     @Test
     @DisplayName("updateRestaurant - Success Full Update")
     void updateRestaurant_whenValidRequest_shouldReturnUpdatedRestaurant() {
-        // Arrange
         Long restaurantId = 1L;
-        updateDto.setName(Optional.of("Updated Name"));
-        updateDto.setEmail(Optional.of("updated@restaurant.com"));
-        updateDto.setDescription(Optional.of("Updated Description"));
-        updateDto.setAddress(Optional.of("Updated Address"));
-        updateDto.setPhoneNumber(Optional.of("555-0000"));
-        updateDto.setIsActive(Optional.of(false));
+        // Set fields directly, not with Optional.of()
+        updateDto.setName("Updated Name");
+        updateDto.setEmail("updated@restaurant.com");
+        updateDto.setDescription("Updated Description");
+        updateDto.setAddress("Updated Address");
+        updateDto.setPhoneNumber("555-0000");
+        updateDto.setIsActive(false);
 
         when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
-        when(restaurantRepository.findByName("Updated Name")).thenReturn(Optional.empty()); // No conflict for new name
-        when(restaurantRepository.findByEmail("updated@restaurant.com")).thenReturn(Optional.empty()); // No conflict for new email
+        // Mock conflict checks for new name/email if they are different from original
+        when(restaurantRepository.findByName("Updated Name")).thenReturn(Optional.empty());
+        when(restaurantRepository.findByEmail("updated@restaurant.com")).thenReturn(Optional.empty());
         when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         Restaurant updatedRestaurant = restaurantService.updateRestaurant(restaurantId, updateDto);
 
-        // Assert
         assertNotNull(updatedRestaurant);
         assertEquals("Updated Name", updatedRestaurant.getName());
         assertEquals("updated@restaurant.com", updatedRestaurant.getEmail());
@@ -216,156 +180,142 @@ class RestaurantServiceImplTest {
         assertEquals("Updated Address", updatedRestaurant.getAddress());
         assertEquals("555-0000", updatedRestaurant.getPhoneNumber());
         assertFalse(updatedRestaurant.isActive());
-        verify(restaurantRepository, times(1)).findById(restaurantId);
-        verify(restaurantRepository, times(1)).save(restaurant); // or any(Restaurant.class)
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).save(restaurant);
     }
-    
+
     @Test
     @DisplayName("updateRestaurant - Success Partial Update (Only Name)")
     void updateRestaurant_whenPartialRequest_shouldUpdateOnlyProvidedFields() {
-        // Arrange
         Long restaurantId = 1L;
-        String originalEmail = restaurant.getEmail(); // Keep original email
-        updateDto.setName(Optional.of("Partially Updated Name"));
-        // Other fields in updateDto remain Optional.empty()
+        String originalEmail = restaurant.getEmail();
+        // Set only the name directly
+        updateDto.setName("Partially Updated Name");
+        // Other fields in updateDto remain null
 
         when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
         when(restaurantRepository.findByName("Partially Updated Name")).thenReturn(Optional.empty());
         when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         Restaurant updatedRestaurant = restaurantService.updateRestaurant(restaurantId, updateDto);
 
-        // Assert
         assertNotNull(updatedRestaurant);
         assertEquals("Partially Updated Name", updatedRestaurant.getName());
         assertEquals(originalEmail, updatedRestaurant.getEmail()); // Email should not change
-        assertEquals(restaurant.getDescription(), updatedRestaurant.getDescription()); // Description should not change
-        verify(restaurantRepository, times(1)).findById(restaurantId);
-        verify(restaurantRepository, times(1)).save(restaurant);
+        assertEquals(restaurant.getDescription(), updatedRestaurant.getDescription());
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).save(restaurant);
     }
 
     @Test
     @DisplayName("updateRestaurant - Not Found")
     void updateRestaurant_whenRestaurantDoesNotExist_shouldThrowResourceNotFoundException() {
-        // Arrange
         Long restaurantId = 99L;
-        updateDto.setName(Optional.of("Doesn't Matter"));
+        updateDto.setName("Doesn't Matter"); // Set directly
         when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.empty());
 
-        // Act & Assert
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
             restaurantService.updateRestaurant(restaurantId, updateDto);
         });
         assertEquals("Restaurant not found with ID: " + restaurantId, exception.getMessage());
-        verify(restaurantRepository, times(1)).findById(restaurantId);
+        verify(restaurantRepository).findById(restaurantId);
         verify(restaurantRepository, never()).save(any(Restaurant.class));
     }
 
     @Test
     @DisplayName("updateRestaurant - Name Conflict")
     void updateRestaurant_whenNewNameConflicts_shouldThrowConflictException() {
-        // Arrange
         Long restaurantId = 1L;
         String conflictingName = "Existing Other Restaurant";
-        updateDto.setName(Optional.of(conflictingName));
+        updateDto.setName(conflictingName); // Set directly
 
         Restaurant otherRestaurant = new Restaurant();
-        otherRestaurant.setId(2L); // Different ID
+        otherRestaurant.setId(2L);
         otherRestaurant.setName(conflictingName);
 
         when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
         when(restaurantRepository.findByName(conflictingName)).thenReturn(Optional.of(otherRestaurant));
 
-        // Act & Assert
         ConflictException exception = assertThrows(ConflictException.class, () -> {
             restaurantService.updateRestaurant(restaurantId, updateDto);
         });
         assertEquals("Restaurant with name '" + conflictingName + "' already exists.", exception.getMessage());
-        verify(restaurantRepository, times(1)).findById(restaurantId);
-        verify(restaurantRepository, times(1)).findByName(conflictingName);
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).findByName(conflictingName);
         verify(restaurantRepository, never()).save(any(Restaurant.class));
     }
 
     @Test
     @DisplayName("updateRestaurant - Email Conflict")
     void updateRestaurant_whenNewEmailConflicts_shouldThrowConflictException() {
-        // Arrange
         Long restaurantId = 1L;
         String conflictingEmail = "existing.other@restaurant.com";
-        updateDto.setEmail(Optional.of(conflictingEmail));
+        updateDto.setEmail(conflictingEmail); // Set directly
+        // updateDto.setName(null); // Ensure name is not being updated or doesn't conflict
 
         Restaurant otherRestaurant = new Restaurant();
-        otherRestaurant.setId(2L); // Different ID
+        otherRestaurant.setId(2L);
         otherRestaurant.setEmail(conflictingEmail);
 
         when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
-        // Assume name update doesn't conflict or isn't provided
-        updateDto.getName().ifPresent(name -> when(restaurantRepository.findByName(name)).thenReturn(Optional.empty()));
+        // If name is also being updated, mock its non-conflict:
+        // if (updateDto.getName() != null) {
+        //    when(restaurantRepository.findByName(updateDto.getName())).thenReturn(Optional.empty());
+        // }
         when(restaurantRepository.findByEmail(conflictingEmail)).thenReturn(Optional.of(otherRestaurant));
 
-
-        // Act & Assert
         ConflictException exception = assertThrows(ConflictException.class, () -> {
             restaurantService.updateRestaurant(restaurantId, updateDto);
         });
         assertEquals("Restaurant with email '" + conflictingEmail + "' already exists.", exception.getMessage());
-        verify(restaurantRepository, times(1)).findById(restaurantId);
-        verify(restaurantRepository, times(1)).findByEmail(conflictingEmail);
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).findByEmail(conflictingEmail);
         verify(restaurantRepository, never()).save(any(Restaurant.class));
     }
-    
+
     @Test
     @DisplayName("updateRestaurant - Update Name to Same Name (No Conflict Check)")
     void updateRestaurant_whenNameIsSame_shouldNotTriggerConflictCheckForName() {
-        // Arrange
         Long restaurantId = 1L;
-        updateDto.setName(Optional.of(restaurant.getName())); // Same name as existing
+        updateDto.setName(restaurant.getName()); // Set directly - same name as existing
 
         when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
         when(restaurantRepository.save(any(Restaurant.class))).thenReturn(restaurant);
 
-        // Act
         restaurantService.updateRestaurant(restaurantId, updateDto);
 
-        // Assert
-        verify(restaurantRepository, times(1)).findById(restaurantId);
-        verify(restaurantRepository, never()).findByName(restaurant.getName()); // Should not be called if name hasn't changed effectively
-        verify(restaurantRepository, times(1)).save(restaurant);
+        verify(restaurantRepository).findById(restaurantId);
+        // Since the name in DTO is the same as the existing one, the findByName check for conflict should be skipped.
+        verify(restaurantRepository, never()).findByName(restaurant.getName());
+        verify(restaurantRepository).save(restaurant);
     }
-
 
     // --- Test cases for deleteRestaurant ---
 
     @Test
     @DisplayName("deleteRestaurant - Success")
     void deleteRestaurant_whenRestaurantExists_shouldDeleteRestaurant() {
-        // Arrange
         Long restaurantId = 1L;
         when(restaurantRepository.existsById(restaurantId)).thenReturn(true);
-        doNothing().when(restaurantRepository).deleteById(restaurantId); // For void methods
+        doNothing().when(restaurantRepository).deleteById(restaurantId);
 
-        // Act
         restaurantService.deleteRestaurant(restaurantId);
 
-        // Assert
-        verify(restaurantRepository, times(1)).existsById(restaurantId);
-        verify(restaurantRepository, times(1)).deleteById(restaurantId);
+        verify(restaurantRepository).existsById(restaurantId);
+        verify(restaurantRepository).deleteById(restaurantId);
     }
 
     @Test
     @DisplayName("deleteRestaurant - Not Found")
     void deleteRestaurant_whenRestaurantDoesNotExist_shouldThrowResourceNotFoundException() {
-        // Arrange
         Long restaurantId = 99L;
         when(restaurantRepository.existsById(restaurantId)).thenReturn(false);
 
-        // Act & Assert
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
             restaurantService.deleteRestaurant(restaurantId);
         });
         assertEquals("Restaurant not found with ID: " + restaurantId + " for deletion.", exception.getMessage());
-        verify(restaurantRepository, times(1)).existsById(restaurantId);
+        verify(restaurantRepository).existsById(restaurantId);
         verify(restaurantRepository, never()).deleteById(anyLong());
     }
 }

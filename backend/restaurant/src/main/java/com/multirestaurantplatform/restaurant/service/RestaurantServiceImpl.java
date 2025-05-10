@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils; // Import StringUtils
 
 import java.util.List;
 
@@ -21,21 +22,18 @@ public class RestaurantServiceImpl implements RestaurantService {
     private static final Logger LOGGER = LoggerFactory.getLogger(RestaurantServiceImpl.class);
 
     private final RestaurantRepository restaurantRepository;
-    // We might need UserRepository later if we implement admin assignment logic here
 
     @Override
     @Transactional
     public Restaurant createRestaurant(CreateRestaurantRequestDto createDto) {
         LOGGER.info("Attempting to create restaurant with name: {}", createDto.getName());
 
-        // Check for existing restaurant by name
         restaurantRepository.findByName(createDto.getName()).ifPresent(r -> {
             LOGGER.warn("Restaurant creation failed: name '{}' already exists.", createDto.getName());
             throw new ConflictException("Restaurant with name '" + createDto.getName() + "' already exists.");
         });
 
-        // Check for existing restaurant by email (if email is intended to be unique across restaurants)
-        if (createDto.getEmail() != null && !createDto.getEmail().isEmpty()) {
+        if (StringUtils.hasText(createDto.getEmail())) { // Use StringUtils.hasText
             restaurantRepository.findByEmail(createDto.getEmail()).ifPresent(r -> {
                 LOGGER.warn("Restaurant creation failed: email '{}' already exists.", createDto.getEmail());
                 throw new ConflictException("Restaurant with email '" + createDto.getEmail() + "' already exists.");
@@ -48,7 +46,7 @@ public class RestaurantServiceImpl implements RestaurantService {
         restaurant.setAddress(createDto.getAddress());
         restaurant.setPhoneNumber(createDto.getPhoneNumber());
         restaurant.setEmail(createDto.getEmail());
-        restaurant.setActive(true); // Default to active on creation
+        restaurant.setActive(true);
 
         Restaurant savedRestaurant = restaurantRepository.save(restaurant);
         LOGGER.info("Restaurant created successfully with ID: {}", savedRestaurant.getId());
@@ -71,7 +69,6 @@ public class RestaurantServiceImpl implements RestaurantService {
     public List<Restaurant> findAllRestaurants() {
         LOGGER.debug("Fetching all restaurants");
         return restaurantRepository.findAll();
-        // Later: Add Pageable for pagination: public Page<Restaurant> findAllRestaurants(Pageable pageable)
     }
 
     @Override
@@ -80,37 +77,52 @@ public class RestaurantServiceImpl implements RestaurantService {
         LOGGER.info("Attempting to update restaurant with ID: {}", id);
         Restaurant restaurant = findRestaurantById(id); // Throws ResourceNotFoundException if not found
 
-        updateDto.getName().ifPresent(name -> {
-            if (!name.equals(restaurant.getName())) { // Only check if name is actually changing
-                restaurantRepository.findByName(name).ifPresent(existing -> {
-                    if (!existing.getId().equals(id)) { // If the found restaurant is not the current one
-                        LOGGER.warn("Restaurant update failed for ID {}: name '{}' already exists for restaurant ID {}.", id, name, existing.getId());
-                        throw new ConflictException("Restaurant with name '" + name + "' already exists.");
-                    }
-                });
-                restaurant.setName(name);
-            }
-        });
-
-        updateDto.getEmail().ifPresent(email -> {
-            if (email != null && !email.isEmpty() && (restaurant.getEmail() == null || !email.equals(restaurant.getEmail()))) {
-                 restaurantRepository.findByEmail(email).ifPresent(existing -> {
+        // For each field, check if it's provided in the DTO (i.e., not null)
+        if (updateDto.getName() != null) {
+            String newName = updateDto.getName();
+            if (!newName.equals(restaurant.getName())) {
+                restaurantRepository.findByName(newName).ifPresent(existing -> {
                     if (!existing.getId().equals(id)) {
-                        LOGGER.warn("Restaurant update failed for ID {}: email '{}' already exists for restaurant ID {}.", id, email, existing.getId());
-                        throw new ConflictException("Restaurant with email '" + email + "' already exists.");
+                        LOGGER.warn("Restaurant update failed for ID {}: name '{}' already exists for restaurant ID {}.", id, newName, existing.getId());
+                        throw new ConflictException("Restaurant with name '" + newName + "' already exists.");
                     }
                 });
-                restaurant.setEmail(email);
-            } else if (email != null && email.isEmpty()) { // Allow clearing email if business logic permits
-                 restaurant.setEmail(null);
+                restaurant.setName(newName);
             }
-        });
+        }
 
+        if (updateDto.getEmail() != null) {
+            String newEmail = updateDto.getEmail();
+            // Check if email is actually changing and if the new email is not empty
+            if (StringUtils.hasText(newEmail) && !newEmail.equals(restaurant.getEmail())) {
+                restaurantRepository.findByEmail(newEmail).ifPresent(existing -> {
+                    if (!existing.getId().equals(id)) {
+                        LOGGER.warn("Restaurant update failed for ID {}: email '{}' already exists for restaurant ID {}.", id, newEmail, existing.getId());
+                        throw new ConflictException("Restaurant with email '" + newEmail + "' already exists.");
+                    }
+                });
+                restaurant.setEmail(newEmail);
+            } else if (updateDto.getEmail().isEmpty() && restaurant.getEmail() != null) {
+                // If an empty string is explicitly passed for email, set it to null (or handle as per business rule)
+                // Assuming here that an empty string means "clear the email"
+                restaurant.setEmail(null);
+            }
+        }
+        // Note: If the client sends "email": null, updateDto.getEmail() will be null, and this block is skipped.
+        // If the client sends "email": "", updateDto.getEmail() will be an empty string.
 
-        updateDto.getDescription().ifPresent(restaurant::setDescription);
-        updateDto.getAddress().ifPresent(restaurant::setAddress);
-        updateDto.getPhoneNumber().ifPresent(restaurant::setPhoneNumber);
-        updateDto.getIsActive().ifPresent(restaurant::setActive);
+        if (updateDto.getDescription() != null) {
+            restaurant.setDescription(updateDto.getDescription());
+        }
+        if (updateDto.getAddress() != null) {
+            restaurant.setAddress(updateDto.getAddress());
+        }
+        if (updateDto.getPhoneNumber() != null) {
+            restaurant.setPhoneNumber(updateDto.getPhoneNumber());
+        }
+        if (updateDto.getIsActive() != null) {
+            restaurant.setActive(updateDto.getIsActive());
+        }
 
         Restaurant updatedRestaurant = restaurantRepository.save(restaurant);
         LOGGER.info("Restaurant with ID: {} updated successfully.", id);
@@ -127,9 +139,5 @@ public class RestaurantServiceImpl implements RestaurantService {
         }
         restaurantRepository.deleteById(id);
         LOGGER.info("Restaurant with ID: {} deleted successfully.", id);
-        // If implementing soft delete:
-        // Restaurant restaurant = findRestaurantById(id);
-        // restaurant.setActive(false);
-        // restaurantRepository.save(restaurant);
     }
 }
