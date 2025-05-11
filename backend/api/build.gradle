@@ -34,7 +34,7 @@ dependencies {
     implementation project(':backend:admin')
     // Add other modules as they become relevant and needed by the api module
     implementation project(':backend:restaurant')
-    // implementation project(':backend:menu')
+    implementation project(':backend:menu')
     // implementation project(':backend:order')
     // implementation project(':backend:payment')
     // implementation project(':backend:print')

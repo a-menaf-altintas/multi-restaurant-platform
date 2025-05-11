@@ -1,3 +1,4 @@
+// File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/UpdateRestaurantRequestDto.java
 package com.multirestaurantplatform.restaurant.dto;
 
 import jakarta.validation.constraints.Email;
@@ -7,18 +8,13 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-// Removed Optional from here as we are not using it anymore
-// import java.util.Optional; // No longer needed for fields
+import java.util.Set; // Import Set
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateRestaurantRequestDto {
-
-    // Fields are now plain String or Boolean, allowing them to be null if not provided in JSON
-    // Validation annotations will apply if the field is provided (not null)
-    // If a field is null, it means the client didn't intend to update it.
 
     @Size(min = 2, max = 100, message = "Restaurant name must be between 2 and 100 characters")
     private String name; // Can be null
@@ -38,4 +34,8 @@ public class UpdateRestaurantRequestDto {
 
     private Boolean isActive; // Can be null (use Boolean wrapper type)
 
+    // New field to manage restaurant administrators
+    // This field is optional. If provided, it will replace the existing set of admins for the restaurant.
+    // If null, the admins will not be changed. If an empty set, all admins will be removed.
+    private Set<Long> adminUserIds; // Can be null
 }

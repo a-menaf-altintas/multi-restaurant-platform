@@ -8,8 +8,13 @@ dependencies {
     // Dependency on the common module (for BaseEntity, etc.)
     implementation project(':backend:common')
 
-    // Dependency on the restaurant module (Menu entity has a ManyToOne with Restaurant)
+    // Dependency on the restaurant module (Menu entity has a ManyToOne with Restaurant, MenuSecurityServiceImpl uses RestaurantSecurityService)
     implementation project(':backend:restaurant')
+
+    // ***** ADD THIS LINE *****
+    // Dependency on the security module (for User, Role, UserRepository used in MenuSecurityServiceImpl)
+    implementation project(':backend:security')
+    // *************************
 
     // Spring Data JPA (version managed by Spring Boot BOM in root project)
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
