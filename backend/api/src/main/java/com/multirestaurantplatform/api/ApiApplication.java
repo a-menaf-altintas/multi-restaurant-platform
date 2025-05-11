@@ -6,17 +6,18 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+// Key change: Added scanBasePackages to @SpringBootApplication
 @SpringBootApplication(scanBasePackages = "com.multirestaurantplatform")
 @EnableJpaRepositories(basePackages = {
         "com.multirestaurantplatform.security.repository",
         "com.multirestaurantplatform.restaurant.repository",
-        "com.multirestaurantplatform.menu.repository" // Add this line
+        "com.multirestaurantplatform.menu.repository"
 })
 @EntityScan(basePackages = {
         "com.multirestaurantplatform.security.model",
         "com.multirestaurantplatform.common.model",
         "com.multirestaurantplatform.restaurant.model",
-        "com.multirestaurantplatform.menu.model" // Add this line
+        "com.multirestaurantplatform.menu.model"
 })
 public class ApiApplication {
 

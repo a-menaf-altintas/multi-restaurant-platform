@@ -1,13 +1,35 @@
-// File: multi-restaurant-platform/backend/order/build.gradle
-// Replace order with order, security, etc.
 plugins {
-    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+    id 'java-library'
 }
 
-description = 'The order module' // e.g., 'The order module'
+description = 'The order module - defines order entities, cart functionality, and potentially services/repositories'
 
 dependencies {
-    // Module-specific dependencies will be added here later
-    // Example:
-    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+    // For Jakarta Persistence API (JPA) entities and Spring Data JPA
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // For using validation annotations like @NotNull, @Min etc. in DTOs
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // For Spring Web (needed for @RestController, @RequestMapping, ResponseEntity, etc.)
+    // This is essential if your controller is in this module.
+    // If the controller is in a separate API gateway module that includes this 'order' module as a library,
+    // then the API gateway module would have this dependency.
+    // However, since CartController.java is defined within this order module, it needs spring-boot-starter-web.
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // For OpenAPI 3.0 (Swagger) annotations and UI generation
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0' // Check for the latest version
+
+    // Lombok (Optional - uncomment if you want to use it)
+    // compileOnly 'org.projectlombok:lombok'
+    // annotationProcessor 'org.projectlombok:lombok'
+
+    // If you have a common module for shared DTOs or exceptions (not currently the case for these specific DTOs)
+    // implementation project(':backend:common')
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }

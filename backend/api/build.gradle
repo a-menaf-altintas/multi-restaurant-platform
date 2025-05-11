@@ -35,9 +35,9 @@ dependencies {
     // Add other modules as they become relevant and needed by the api module
     implementation project(':backend:restaurant')
     implementation project(':backend:menu')
-    // implementation project(':backend:order')
-    // implementation project(':backend:payment')
-    // implementation project(':backend:print')
+    implementation project(':backend:order')
+    implementation project(':backend:payment')
+    implementation project(':backend:print')
 
     // --- Testing (Version managed by BOM in root project) ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
