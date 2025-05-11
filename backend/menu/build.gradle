@@ -17,7 +17,23 @@ dependencies {
     // Add this for Jakarta Validation API (e.g., @NotBlank, @Size)
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // Lombok is managed in the root build.gradle
+    // Lombok is managed in the root build.gradle's subprojects block
     // compileOnly 'org.projectlombok:lombok'
     // annotationProcessor 'org.projectlombok:lombok'
+
+    // --- Test Dependencies ---
+    // Spring Boot Test Starter: Includes JUnit 5, Mockito, AssertJ, Spring Test, etc.
+    // Version is managed by the Spring Boot BOM imported in the root project.
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // Lombok for tests (also managed by root build.gradle's subprojects block, but good to be aware)
+    // testCompileOnly 'org.projectlombok:lombok'
+    // testAnnotationProcessor 'org.projectlombok:lombok'
 }
+
+// Ensure JUnit 5 platform is used for tests (usually configured in root build.gradle's subprojects block)
+/*
+tasks.withType(Test) {
+    useJUnitPlatform()
+}
+*/

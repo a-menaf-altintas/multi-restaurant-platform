@@ -171,13 +171,15 @@ dependencies {
     implementation project(':backend:security')
     implementation project(':backend:admin')
     // Add other modules as they become relevant and needed by the api module
-    // implementation project(':backend:restaurant')
+    implementation project(':backend:restaurant')
     // implementation project(':backend:menu')
     // implementation project(':backend:order')
     // implementation project(':backend:payment')
     // implementation project(':backend:print')
 // --- Testing (Version managed by BOM in root project) ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test' // For @WithMockUser etc.
 // Lombok dependencies are managed in the root build.gradle
 }
 springBoot {
@@ -197,11 +199,19 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = "com.multirestaurantplatform")
-@EnableJpaRepositories(basePackages = "com.multirestaurantplatform.security.repository")
-@EntityScan(basePackages = {"com.multirestaurantplatform.security.model", "com.multirestaurantplatform.common.model"})
+@EnableJpaRepositories(basePackages = {
+        "com.multirestaurantplatform.security.repository",
+        "com.multirestaurantplatform.restaurant.repository",
+        "com.multirestaurantplatform.menu.repository" // Add this line
+})
+@EntityScan(basePackages = {
+        "com.multirestaurantplatform.security.model",
+        "com.multirestaurantplatform.common.model",
+        "com.multirestaurantplatform.restaurant.model",
+        "com.multirestaurantplatform.menu.model" // Add this line
+})
 public class ApiApplication {
 public static void main(String[] args) {
-        // Configure Dotenv to look for the .env file in the project root directory.
         Dotenv dotenv = Dotenv.configure()
                 .directory("../../") // Path from backend/api to project root
                 .filename(".env")    // Explicitly specify the filename
@@ -209,13 +219,10 @@ public static void main(String[] args) {
                 .ignoreIfMalformed() // Don't throw an error if .env is malformed
                 .load();
 String loadedSecret = dotenv.get("JWT_SECRET_KEY");
-if (loadedSecret != null && !loadedSecret.trim().isEmpty()) {
-            // Explicitly set the loaded secret as a system property
-            // BEFORE SpringApplication.run() to ensure Spring Boot picks it up.
+        if (loadedSecret != null && !loadedSecret.trim().isEmpty()) {
             System.setProperty("JWT_SECRET_KEY", loadedSecret);
         }
-        // Removed debug print lines for security
-SpringApplication.run(ApiApplication.class, args);
+        SpringApplication.run(ApiApplication.class, args);
     }
 }
 File: backend/api/src/main/java/com/multirestaurantplatform/api/config/OpenApiConfig.java
@@ -291,6 +298,153 @@ return ResponseEntity.ok(data);
     @PreAuthorize("hasRole('ADMIN')") // Ensure your roles are prefixed with ROLE_ in UserDetails authorities, or use hasAuthority('ADMIN')
     public ResponseEntity<String> getAdminData() {
         return ResponseEntity.ok("This is data only for users with the ADMIN role.");
+    }
+}
+File: backend/api/src/main/java/com/multirestaurantplatform/api/controller/RestaurantController.java
+package com.multirestaurantplatform.api.controller;
+import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.dto.RestaurantResponseDto;
+import com.multirestaurantplatform.restaurant.dto.UpdateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
+import com.multirestaurantplatform.restaurant.service.RestaurantService;
+// Import your custom security service if you create one for method-level checks
+// import com.multirestaurantplatform.security.service.RestaurantSecurityService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.stream.Collectors;
+@RestController
+@RequestMapping("/api/v1/restaurants")
+@RequiredArgsConstructor
+@Tag(name = "Restaurant Management", description = "APIs for managing restaurants")
+@SecurityRequirement(name = "bearerAuth") // Indicates that JWT is required for these endpoints by default
+public class RestaurantController {
+private static final Logger LOGGER = LoggerFactory.getLogger(RestaurantController.class);
+    private final RestaurantService restaurantService;
+    // Uncomment if you implement RestaurantSecurityService for custom authorization
+    // private final RestaurantSecurityService restaurantSecurityService;
+// Helper method to map Restaurant Entity to RestaurantResponseDto
+    private RestaurantResponseDto mapToRestaurantResponseDto(Restaurant restaurant) {
+        if (restaurant == null) {
+            return null;
+        }
+        return new RestaurantResponseDto(
+                restaurant.getId(),
+                restaurant.getName(),
+                restaurant.getDescription(),
+                restaurant.getAddress(),
+                restaurant.getPhoneNumber(),
+                restaurant.getEmail(),
+                restaurant.isActive(),
+                restaurant.getCreatedAt(),
+                restaurant.getUpdatedAt()
+        );
+    }
+@PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create a new restaurant",
+               description = "Creates a new restaurant. Requires ADMIN role.",
+               responses = {
+                   @ApiResponse(responseCode = "201", description = "Restaurant created successfully",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
+                   @ApiResponse(responseCode = "400", description = "Invalid input data (e.g., validation error)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden - User does not have ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "409", description = "Conflict - Restaurant name or email already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+               })
+    public ResponseEntity<RestaurantResponseDto> createRestaurant(
+            @Valid @RequestBody CreateRestaurantRequestDto createDto) {
+        LOGGER.info("API call to create restaurant with name: {}", createDto.getName());
+        Restaurant createdRestaurant = restaurantService.createRestaurant(createDto);
+        LOGGER.info("Restaurant created with ID: {}", createdRestaurant.getId());
+        return new ResponseEntity<>(mapToRestaurantResponseDto(createdRestaurant), HttpStatus.CREATED);
+    }
+@GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()") // Allows any authenticated user to view restaurant details. Adjust if needed.
+    @Operation(summary = "Get a restaurant by ID",
+               description = "Retrieves details of a specific restaurant by its ID. Accessible by any authenticated user.",
+               responses = {
+                   @ApiResponse(responseCode = "200", description = "Restaurant found",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden (if specific role checks were added and failed)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+               })
+    public ResponseEntity<RestaurantResponseDto> getRestaurantById(@PathVariable Long id) {
+        LOGGER.debug("API call to get restaurant by ID: {}", id);
+        Restaurant restaurant = restaurantService.findRestaurantById(id);
+        return ResponseEntity.ok(mapToRestaurantResponseDto(restaurant));
+    }
+@GetMapping
+    @PreAuthorize("isAuthenticated()") // Allows any authenticated user to list restaurants.
+    @Operation(summary = "Get all restaurants",
+               description = "Retrieves a list of all restaurants. Accessible by any authenticated user. (Pagination to be added later)",
+               responses = {
+                   @ApiResponse(responseCode = "200", description = "List of restaurants retrieved",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+               })
+    public ResponseEntity<List<RestaurantResponseDto>> getAllRestaurants() {
+        // TODO: Implement pagination (e.g., using Pageable) and filtering
+        LOGGER.debug("API call to get all restaurants");
+        List<Restaurant> restaurants = restaurantService.findAllRestaurants();
+        List<RestaurantResponseDto> responseDtos = restaurants.stream()
+                .map(this::mapToRestaurantResponseDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responseDtos);
+    }
+@PutMapping("/{id}")
+    // Option 1: Simple ADMIN only
+    // @PreAuthorize("hasRole('ADMIN')")
+    // Option 2: ADMIN or specific RESTAURANT_ADMIN (requires custom RestaurantSecurityService)
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('RESTAURANT_ADMIN') and @restaurantSecurityServiceImpl.isRestaurantAdminForRestaurant(#id, principal.username))")
+    @Operation(summary = "Update an existing restaurant",
+               description = "Updates details of an existing restaurant. Requires ADMIN role, or RESTAURANT_ADMIN role for the specific restaurant if `RestaurantSecurityService` is implemented.",
+               responses = {
+                   @ApiResponse(responseCode = "200", description = "Restaurant updated successfully",
+                                content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
+                   @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "409", description = "Conflict - Updated name or email already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+               })
+    public ResponseEntity<RestaurantResponseDto> updateRestaurant(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateRestaurantRequestDto updateDto) {
+        LOGGER.info("API call to update restaurant with ID: {}", id);
+        Restaurant updatedRestaurant = restaurantService.updateRestaurant(id, updateDto);
+        LOGGER.info("Restaurant with ID: {} updated successfully", updatedRestaurant.getId());
+        return ResponseEntity.ok(mapToRestaurantResponseDto(updatedRestaurant));
+    }
+@DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a restaurant by ID",
+               description = "Deletes a specific restaurant by its ID. Requires ADMIN role.",
+               responses = {
+                   @ApiResponse(responseCode = "204", description = "Restaurant deleted successfully"),
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden - User does not have ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+               })
+    public ResponseEntity<Void> deleteRestaurant(@PathVariable Long id) {
+        LOGGER.info("API call to delete restaurant with ID: {}", id);
+        restaurantService.deleteRestaurant(id);
+        LOGGER.info("Restaurant with ID: {} deleted successfully", id);
+        return ResponseEntity.noContent().build();
     }
 }
 File: backend/api/src/main/java/com/multirestaurantplatform/api/controller/UserController.java
@@ -612,6 +766,393 @@ CREATE TABLE user_roles (
 -- Optional: Add indexes for performance on frequently queried columns
 CREATE INDEX idx_users_username ON users (username);
 CREATE INDEX idx_users_email ON users (email);
+File: backend/api/src/main/resources/db/migration/V2__Create_Restaurant_Tables.sql
+-- File: backend/api/src/main/resources/db/migration/V2__Create_Restaurant_Tables.sql
+-- Create the restaurants table
+CREATE TABLE restaurants (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(1000),
+    address VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    email VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT uq_restaurants_name UNIQUE (name), -- Ensure restaurant names are unique
+    CONSTRAINT uq_restaurants_email UNIQUE (email) -- Ensure restaurant emails are unique if provided
+);
+-- Create the restaurant_admins join table for the ManyToMany relationship
+-- between restaurants and users (administrators)
+CREATE TABLE restaurant_admins (
+    restaurant_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    CONSTRAINT pk_restaurant_admins PRIMARY KEY (restaurant_id, user_id),
+    CONSTRAINT fk_restaurant_admins_restaurant FOREIGN KEY (restaurant_id) REFERENCES restaurants (id) ON DELETE CASCADE,
+    CONSTRAINT fk_restaurant_admins_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+-- Optional: Add indexes for performance
+CREATE INDEX idx_restaurants_name ON restaurants (name);
+CREATE INDEX idx_restaurants_is_active ON restaurants (is_active);
+File: backend/api/src/main/resources/db/migration/V3__Create_Menu_Table.sql
+-- Flyway migration script V3__Create_Menu_Table.sql
+-- Create the menus table
+CREATE TABLE menus (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    restaurant_id BIGINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT fk_menus_restaurant FOREIGN KEY (restaurant_id) REFERENCES restaurants (id) ON DELETE CASCADE,
+    CONSTRAINT uq_menus_restaurant_id_name UNIQUE (restaurant_id, name) -- A restaurant cannot have two menus with the same name
+);
+-- Optional: Add indexes for performance
+CREATE INDEX idx_menus_restaurant_id ON menus (restaurant_id);
+CREATE INDEX idx_menus_name ON menus (name);
+CREATE INDEX idx_menus_is_active ON menus (is_active);
+File: backend/api/src/test/java/com/multirestaurantplatform/api/controller/RestaurantControllerIntegrationTest.java
+package com.multirestaurantplatform.api.controller;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.multirestaurantplatform.common.exception.ConflictException;
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
+import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.dto.RestaurantResponseDto;
+import com.multirestaurantplatform.restaurant.dto.UpdateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
+import com.multirestaurantplatform.restaurant.service.RestaurantService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+@SpringBootTest // Loads the full application context
+@AutoConfigureMockMvc // Configures MockMvc
+@TestPropertySource(properties = {
+        // Provide a dummy JWT secret for tests if your security config needs it for startup
+        // This was used in AuthControllerIntegrationTest, good to keep consistent
+        "app.jwt.secret=FZrx/+48fJdLdRjR7xESLZFrEbP/3gEUZhfyH9cG3mRWOGmzxZaEhyaZsSgjGCtUD2tKOuQUoqLXWosZbl9DTg=="
+})
+class RestaurantControllerIntegrationTest {
+@Autowired
+    private MockMvc mockMvc; // For sending HTTP requests to the controller
+@Autowired
+    private ObjectMapper objectMapper; // For converting objects to/from JSON
+@MockBean // Creates a Mockito mock for RestaurantService and injects it into the application context
+    private RestaurantService restaurantService;
+private Restaurant restaurant1;
+    private Restaurant restaurant2;
+    private RestaurantResponseDto responseDto1;
+    private CreateRestaurantRequestDto createDto;
+    private UpdateRestaurantRequestDto updateDto;
+@BeforeEach
+    void setUp() {
+        objectMapper.registerModule(new JavaTimeModule());
+Instant now = Instant.now();
+        restaurant1 = new Restaurant();
+        restaurant1.setId(1L);
+        restaurant1.setName("Test Restaurant One");
+        restaurant1.setDescription("Description One");
+        restaurant1.setAddress("123 Test St");
+        restaurant1.setPhoneNumber("555-0101");
+        restaurant1.setEmail("one@test.com");
+        restaurant1.setActive(true); // Ensure this is set for restaurant1
+        restaurant1.setCreatedAt(now);
+        restaurant1.setUpdatedAt(now);
+restaurant2 = new Restaurant();
+        restaurant2.setId(2L);
+        restaurant2.setName("Test Restaurant Two");
+        restaurant2.setDescription("Description Two");
+        restaurant2.setAddress("456 Other Ave");
+        restaurant2.setPhoneNumber("555-0202");
+        restaurant2.setEmail("two@test.com");
+        restaurant2.setActive(true);
+        restaurant2.setCreatedAt(now);
+        restaurant2.setUpdatedAt(now.plusSeconds(60));
+responseDto1 = new RestaurantResponseDto(
+                restaurant1.getId(), restaurant1.getName(), restaurant1.getDescription(),
+                restaurant1.getAddress(), restaurant1.getPhoneNumber(), restaurant1.getEmail(),
+                restaurant1.isActive(), restaurant1.getCreatedAt(), restaurant1.getUpdatedAt()
+        );
+createDto = new CreateRestaurantRequestDto();
+        createDto.setName("New Awesome Restaurant");
+        createDto.setDescription("A truly awesome place.");
+        createDto.setAddress("789 Awesome Rd");
+        createDto.setPhoneNumber("555-0303");
+        createDto.setEmail("awesome@test.com");
+updateDto = new UpdateRestaurantRequestDto();
+    }
+// --- POST /api/v1/restaurants ---
+@Test
+    @DisplayName("POST /restaurants - Success (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void createRestaurant_whenAdminAndValidData_shouldReturn201AndRestaurant() throws Exception {
+        Restaurant createdRestaurant = new Restaurant();
+        createdRestaurant.setId(3L);
+        createdRestaurant.setName(createDto.getName());
+        createdRestaurant.setDescription(createDto.getDescription());
+        createdRestaurant.setAddress(createDto.getAddress());
+        createdRestaurant.setPhoneNumber(createDto.getPhoneNumber());
+        createdRestaurant.setEmail(createDto.getEmail());
+        createdRestaurant.setActive(true); // Explicitly set for the response DTO mapping
+        createdRestaurant.setCreatedAt(Instant.now());
+        createdRestaurant.setUpdatedAt(Instant.now());
+when(restaurantService.createRestaurant(any(CreateRestaurantRequestDto.class))).thenReturn(createdRestaurant);
+ResultActions resultActions = mockMvc.perform(post("/api/v1/restaurants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createDto)));
+resultActions.andExpect(status().isCreated())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id", is(3)))
+                .andExpect(jsonPath("$.name", is(createDto.getName())))
+                .andExpect(jsonPath("$.description", is(createDto.getDescription())))
+                .andExpect(jsonPath("$.active", is(true))); // Check for 'active'
+        verify(restaurantService).createRestaurant(any(CreateRestaurantRequestDto.class));
+    }
+@Test
+    @DisplayName("POST /restaurants - Validation Error (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void createRestaurant_whenAdminAndInvalidData_shouldReturn400() throws Exception {
+        CreateRestaurantRequestDto invalidDto = new CreateRestaurantRequestDto();
+        invalidDto.setName("");
+ResultActions resultActions = mockMvc.perform(post("/api/v1/restaurants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalidDto)));
+resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.errors", hasItem(containsString("Restaurant name cannot be blank"))));
+        verify(restaurantService, never()).createRestaurant(any());
+    }
+@Test
+    @DisplayName("POST /restaurants - Name Conflict (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void createRestaurant_whenNameConflict_shouldReturn409() throws Exception {
+        when(restaurantService.createRestaurant(any(CreateRestaurantRequestDto.class)))
+                .thenThrow(new ConflictException("Restaurant with name '" + createDto.getName() + "' already exists."));
+ResultActions resultActions = mockMvc.perform(post("/api/v1/restaurants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createDto)));
+resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status", is(409)))
+                .andExpect(jsonPath("$.message", containsString("already exists")));
+    }
+@Test
+    @DisplayName("POST /restaurants - Forbidden (CUSTOMER)")
+    @WithMockUser(username = "customer", roles = {"CUSTOMER"})
+    void createRestaurant_whenCustomer_shouldReturn403Forbidden() throws Exception {
+        ResultActions resultActions = mockMvc.perform(post("/api/v1/restaurants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createDto)));
+resultActions.andExpect(status().isForbidden());
+        verify(restaurantService, never()).createRestaurant(any());
+    }
+@Test
+    @DisplayName("POST /restaurants - Unauthorized (No Auth)")
+    void createRestaurant_whenNoAuth_shouldReturn401Unauthorized() throws Exception {
+        ResultActions resultActions = mockMvc.perform(post("/api/v1/restaurants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createDto)));
+resultActions.andExpect(status().isUnauthorized());
+        verify(restaurantService, never()).createRestaurant(any());
+    }
+// --- GET /api/v1/restaurants/{id} ---
+@Test
+    @DisplayName("GET /restaurants/{id} - Success (Authenticated User)")
+    @WithMockUser(username = "anyuser")
+    void getRestaurantById_whenExistsAndAuthenticated_shouldReturn200AndRestaurant() throws Exception {
+        when(restaurantService.findRestaurantById(1L)).thenReturn(restaurant1);
+ResultActions resultActions = mockMvc.perform(get("/api/v1/restaurants/1")
+                .accept(MediaType.APPLICATION_JSON));
+resultActions.andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id", is(1)))
+                .andExpect(jsonPath("$.name", is(restaurant1.getName())))
+                .andExpect(jsonPath("$.active", is(restaurant1.isActive()))); // Check for 'active'
+        verify(restaurantService).findRestaurantById(1L);
+    }
+@Test
+    @DisplayName("GET /restaurants/{id} - Not Found (Authenticated User)")
+    @WithMockUser(username = "anyuser")
+    void getRestaurantById_whenNotExists_shouldReturn404() throws Exception {
+        when(restaurantService.findRestaurantById(99L)).thenThrow(new ResourceNotFoundException("Restaurant not found with ID: 99"));
+ResultActions resultActions = mockMvc.perform(get("/api/v1/restaurants/99")
+                .accept(MediaType.APPLICATION_JSON));
+resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status", is(404)))
+                .andExpect(jsonPath("$.message", containsString("Restaurant not found with ID: 99")));
+        verify(restaurantService).findRestaurantById(99L);
+    }
+@Test
+    @DisplayName("GET /restaurants/{id} - Unauthorized (No Auth)")
+    void getRestaurantById_whenNoAuth_shouldReturn401() throws Exception {
+        ResultActions resultActions = mockMvc.perform(get("/api/v1/restaurants/1")
+                .accept(MediaType.APPLICATION_JSON));
+        resultActions.andExpect(status().isUnauthorized());
+    }
+// --- GET /api/v1/restaurants ---
+@Test
+    @DisplayName("GET /restaurants - Success with Data (Authenticated User)")
+    @WithMockUser(username = "anyuser")
+    void getAllRestaurants_whenDataExists_shouldReturn200AndListOfRestaurants() throws Exception {
+        List<Restaurant> restaurants = Arrays.asList(restaurant1, restaurant2);
+        when(restaurantService.findAllRestaurants()).thenReturn(restaurants);
+ResultActions resultActions = mockMvc.perform(get("/api/v1/restaurants")
+                .accept(MediaType.APPLICATION_JSON));
+resultActions.andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].name", is(restaurant1.getName())))
+                .andExpect(jsonPath("$[0].active", is(restaurant1.isActive()))) // Check for 'active'
+                .andExpect(jsonPath("$[1].name", is(restaurant2.getName())))
+                .andExpect(jsonPath("$[1].active", is(restaurant2.isActive()))); // Check for 'active'
+        verify(restaurantService).findAllRestaurants();
+    }
+@Test
+    @DisplayName("GET /restaurants - Success Empty List (Authenticated User)")
+    @WithMockUser(username = "anyuser")
+    void getAllRestaurants_whenNoData_shouldReturn200AndEmptyList() throws Exception {
+        when(restaurantService.findAllRestaurants()).thenReturn(Collections.emptyList());
+ResultActions resultActions = mockMvc.perform(get("/api/v1/restaurants")
+                .accept(MediaType.APPLICATION_JSON));
+resultActions.andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", hasSize(0)));
+        verify(restaurantService).findAllRestaurants();
+    }
+@Test
+    @DisplayName("GET /restaurants - Unauthorized (No Auth)")
+    void getAllRestaurants_whenNoAuth_shouldReturn401() throws Exception {
+        ResultActions resultActions = mockMvc.perform(get("/api/v1/restaurants")
+                .accept(MediaType.APPLICATION_JSON));
+        resultActions.andExpect(status().isUnauthorized());
+    }
+// --- PUT /api/v1/restaurants/{id} ---
+@Test
+    @DisplayName("PUT /restaurants/{id} - Success (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void updateRestaurant_whenAdminAndValidData_shouldReturn200AndUpdatedRestaurant() throws Exception {
+        Long restaurantId = 1L;
+        updateDto.setDescription("Updated Description by Admin");
+        updateDto.setIsActive(false);
+Restaurant updatedRestaurant = new Restaurant();
+        updatedRestaurant.setId(restaurantId);
+        updatedRestaurant.setName(restaurant1.getName());
+        updatedRestaurant.setDescription(updateDto.getDescription());
+        updatedRestaurant.setActive(updateDto.getIsActive());
+        // Make sure to set all fields that RestaurantResponseDto expects,
+        // otherwise they might be null and Jackson might omit them if configured to do so,
+        // or it might cause issues if primitive types in DTO expect non-null.
+        updatedRestaurant.setAddress(restaurant1.getAddress());
+        updatedRestaurant.setPhoneNumber(restaurant1.getPhoneNumber());
+        updatedRestaurant.setEmail(restaurant1.getEmail());
+        updatedRestaurant.setCreatedAt(restaurant1.getCreatedAt());
+        updatedRestaurant.setUpdatedAt(Instant.now());
+when(restaurantService.updateRestaurant(eq(restaurantId), any(UpdateRestaurantRequestDto.class)))
+                .thenReturn(updatedRestaurant);
+ResultActions resultActions = mockMvc.perform(put("/api/v1/restaurants/{id}", restaurantId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateDto)));
+resultActions.andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id", is(restaurantId.intValue())))
+                .andExpect(jsonPath("$.description", is("Updated Description by Admin")))
+                .andExpect(jsonPath("$.active", is(false))); // Corrected: Check for 'active'
+        verify(restaurantService).updateRestaurant(eq(restaurantId), any(UpdateRestaurantRequestDto.class));
+    }
+@Test
+    @DisplayName("PUT /restaurants/{id} - Not Found (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void updateRestaurant_whenAdminAndNotFound_shouldReturn404() throws Exception {
+        Long nonExistentId = 99L;
+        updateDto.setName("Some Update");
+        when(restaurantService.updateRestaurant(eq(nonExistentId), any(UpdateRestaurantRequestDto.class)))
+                .thenThrow(new ResourceNotFoundException("Restaurant not found with ID: " + nonExistentId));
+ResultActions resultActions = mockMvc.perform(put("/api/v1/restaurants/{id}", nonExistentId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateDto)));
+resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status", is(404)));
+        verify(restaurantService).updateRestaurant(eq(nonExistentId), any(UpdateRestaurantRequestDto.class));
+    }
+@Test
+    @DisplayName("PUT /restaurants/{id} - Validation Error (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void updateRestaurant_whenAdminAndInvalidData_shouldReturn400() throws Exception {
+        Long restaurantId = 1L;
+        UpdateRestaurantRequestDto invalidUpdateDto = new UpdateRestaurantRequestDto();
+        invalidUpdateDto.setName("");
+ResultActions resultActions = mockMvc.perform(put("/api/v1/restaurants/{id}", restaurantId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalidUpdateDto)));
+resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.errors", hasItem(containsString("Restaurant name must be between 2 and 100 characters"))));
+        verify(restaurantService, never()).updateRestaurant(anyLong(), any());
+    }
+@Test
+    @DisplayName("PUT /restaurants/{id} - Forbidden (CUSTOMER)")
+    @WithMockUser(username = "customer", roles = {"CUSTOMER"})
+    void updateRestaurant_whenCustomer_shouldReturn403Forbidden() throws Exception {
+        Long restaurantId = 1L;
+        updateDto.setDescription("Customer Update Attempt");
+ResultActions resultActions = mockMvc.perform(put("/api/v1/restaurants/{id}", restaurantId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateDto)));
+resultActions.andExpect(status().isForbidden());
+        verify(restaurantService, never()).updateRestaurant(anyLong(), any());
+    }
+// --- DELETE /api/v1/restaurants/{id} ---
+@Test
+    @DisplayName("DELETE /restaurants/{id} - Success (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void deleteRestaurant_whenAdminAndExists_shouldReturn204NoContent() throws Exception {
+        Long restaurantId = 1L;
+        doNothing().when(restaurantService).deleteRestaurant(restaurantId);
+ResultActions resultActions = mockMvc.perform(delete("/api/v1/restaurants/{id}", restaurantId));
+resultActions.andExpect(status().isNoContent());
+        verify(restaurantService).deleteRestaurant(restaurantId);
+    }
+@Test
+    @DisplayName("DELETE /restaurants/{id} - Not Found (ADMIN)")
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
+    void deleteRestaurant_whenAdminAndNotFound_shouldReturn404() throws Exception {
+        Long nonExistentId = 99L;
+        doThrow(new ResourceNotFoundException("Restaurant not found with ID: " + nonExistentId))
+                .when(restaurantService).deleteRestaurant(nonExistentId);
+ResultActions resultActions = mockMvc.perform(delete("/api/v1/restaurants/{id}", nonExistentId));
+resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status", is(404)));
+        verify(restaurantService).deleteRestaurant(nonExistentId);
+    }
+@Test
+    @DisplayName("DELETE /restaurants/{id} - Forbidden (CUSTOMER)")
+    @WithMockUser(username = "customer", roles = {"CUSTOMER"})
+    void deleteRestaurant_whenCustomer_shouldReturn403Forbidden() throws Exception {
+        Long restaurantId = 1L;
+ResultActions resultActions = mockMvc.perform(delete("/api/v1/restaurants/{id}", restaurantId));
+resultActions.andExpect(status().isForbidden());
+        verify(restaurantService, never()).deleteRestaurant(anyLong());
+    }
+}
 File: backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth/AuthControllerIntegrationTest.java
 package com.multirestaurantplatform.api.controller.auth;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -821,16 +1362,76 @@ private static final long serialVersionUID = 1L; // Recommended for Serializable
     }
 }
 File: backend/menu/build.gradle
-// File: multi-restaurant-platform/backend/menu/build.gradle
-// Replace menu with menu, security, etc.
 plugins {
-    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+    id 'java-library'
 }
-description = 'The menu module' // e.g., 'The menu module'
+description = 'The menu module for managing restaurant menus, sections, and items.'
 dependencies {
-    // Module-specific dependencies will be added here later
-    // Example:
-    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+    // Dependency on the common module (for BaseEntity, etc.)
+    implementation project(':backend:common')
+// Dependency on the restaurant module (Menu entity has a ManyToOne with Restaurant)
+    implementation project(':backend:restaurant')
+// Spring Data JPA (version managed by Spring Boot BOM in root project)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+// Add this for Jakarta Validation API (e.g., @NotBlank, @Size)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+// Lombok is managed in the root build.gradle
+    // compileOnly 'org.projectlombok:lombok'
+    // annotationProcessor 'org.projectlombok:lombok'
+}
+File: backend/menu/src/main/java/com/multirestaurantplatform/menu/model/Menu.java
+package com.multirestaurantplatform.menu.model;
+import com.multirestaurantplatform.common.model.BaseEntity;
+import com.multirestaurantplatform.restaurant.model.Restaurant; // Import Restaurant
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "menus", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"restaurant_id", "name"}, name = "uq_menus_restaurant_id_name")
+})
+public class Menu extends BaseEntity {
+@NotBlank(message = "Menu name cannot be blank")
+    @Size(min = 2, max = 100, message = "Menu name must be between 2 and 100 characters")
+    @Column(nullable = false, length = 100)
+    private String name;
+@Size(max = 500, message = "Description cannot exceed 500 characters")
+    @Column(length = 500)
+    private String description;
+@Column(nullable = false)
+    private boolean isActive = true;
+@NotNull(message = "Menu must be associated with a restaurant")
+    @ManyToOne(fetch = FetchType.LAZY) // Many menus can belong to one restaurant
+    @JoinColumn(name = "restaurant_id", nullable = false) // Foreign key column in the 'menus' table
+    private Restaurant restaurant;
+// toString, equals, and hashCode are inherited from BaseEntity (or can be customized if needed)
+    // We might add @OneToMany for MenuSection later
+}
+File: backend/menu/src/main/java/com/multirestaurantplatform/menu/repository/MenuRepository.java
+package com.multirestaurantplatform.menu.repository;
+import com.multirestaurantplatform.menu.model.Menu;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.util.Optional;
+@Repository
+public interface MenuRepository extends JpaRepository<Menu, Long> {
+// Find all menus for a specific restaurant
+    List<Menu> findByRestaurantId(Long restaurantId);
+// Find all active menus for a specific restaurant
+    List<Menu> findByRestaurantIdAndIsActiveTrue(Long restaurantId);
+// Find a menu by its name and restaurant ID (to check for duplicates within a restaurant)
+    Optional<Menu> findByRestaurantIdAndNameIgnoreCase(Long restaurantId, String name);
+// You can add more custom query methods here as needed.
 }
 File: backend/order/build.gradle
 // File: multi-restaurant-platform/backend/order/build.gradle
@@ -869,16 +1470,689 @@ dependencies {
     // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
 }
 File: backend/restaurant/build.gradle
-// File: multi-restaurant-platform/backend/restaurant/build.gradle
-// Replace restaurant with restaurant, security, etc.
 plugins {
-    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+    id 'java-library'
 }
-description = 'The restaurant module' // e.g., 'The restaurant module'
+description = 'The restaurant module'
 dependencies {
-    // Module-specific dependencies will be added here later
-    // Example:
-    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+    // Dependency on the common module (for BaseEntity, etc.)
+    implementation project(':backend:common')
+// Dependency on the security module (for User entity)
+    implementation project(':backend:security')
+// REMOVED: implementation project(':backend:menu') // This line caused the circular dependency
+// Spring Data JPA (version managed by Spring Boot BOM in root project)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+implementation 'org.springframework.boot:spring-boot-starter-validation'
+// Lombok is managed in the root build.gradle
+testImplementation 'org.springframework.boot:spring-boot-starter-test' // Includes JUnit 5, Mockito, AssertJ, etc.
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/CreateRestaurantRequestDto.java
+package com.multirestaurantplatform.restaurant.dto;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreateRestaurantRequestDto {
+@NotBlank(message = "Restaurant name cannot be blank")
+    @Size(min = 2, max = 100, message = "Restaurant name must be between 2 and 100 characters")
+    private String name;
+@Size(max = 1000, message = "Description cannot exceed 1000 characters")
+    private String description;
+@NotBlank(message = "Address cannot be blank")
+    @Size(max = 255, message = "Address cannot exceed 255 characters")
+    private String address;
+@NotBlank(message = "Phone number cannot be blank")
+    @Size(max = 20, message = "Phone number cannot exceed 20 characters")
+    private String phoneNumber;
+@Email(message = "Restaurant email should be valid")
+    @Size(max = 100, message = "Restaurant email cannot exceed 100 characters")
+    private String email; // Contact email for the restaurant
+// We can add fields for initial restaurant admins (e.g., Set<Long> adminUserIds) later if needed.
+    // For now, keep it simple. Admin assignment can be a separate operation or part of an update.
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/RestaurantResponseDto.java
+package com.multirestaurantplatform.restaurant.dto;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import java.time.Instant;
+import java.util.Set; // For future use if we include admin usernames or IDs
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class RestaurantResponseDto {
+    private Long id;
+    private String name;
+    private String description;
+    private String address;
+    private String phoneNumber;
+    private String email;
+    private boolean isActive;
+    private Instant createdAt;
+    private Instant updatedAt;
+    // We can add a Set<String> restaurantAdminUsernames later if needed
+    // For now, keeping it simple. The controller will map from the Restaurant entity.
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/UpdateRestaurantRequestDto.java
+package com.multirestaurantplatform.restaurant.dto;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+// Removed Optional from here as we are not using it anymore
+// import java.util.Optional; // No longer needed for fields
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class UpdateRestaurantRequestDto {
+// Fields are now plain String or Boolean, allowing them to be null if not provided in JSON
+    // Validation annotations will apply if the field is provided (not null)
+    // If a field is null, it means the client didn't intend to update it.
+@Size(min = 2, max = 100, message = "Restaurant name must be between 2 and 100 characters")
+    private String name; // Can be null
+@Size(max = 1000, message = "Description cannot exceed 1000 characters")
+    private String description; // Can be null
+@Size(max = 255, message = "Address cannot exceed 255 characters")
+    private String address; // Can be null
+@Size(max = 20, message = "Phone number cannot exceed 20 characters")
+    private String phoneNumber; // Can be null
+@Email(message = "Restaurant email should be valid")
+    @Size(max = 100, message = "Restaurant email cannot exceed 100 characters")
+    private String email; // Can be null
+private Boolean isActive; // Can be null (use Boolean wrapper type)
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/model/Restaurant.java
+package com.multirestaurantplatform.restaurant.model;
+import com.multirestaurantplatform.common.model.BaseEntity;
+import com.multirestaurantplatform.security.model.User; // Keep this import
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import java.util.HashSet;
+import java.util.Set;
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "restaurants")
+public class Restaurant extends BaseEntity {
+@NotBlank(message = "Restaurant name cannot be blank")
+    @Size(min = 2, max = 100, message = "Restaurant name must be between 2 and 100 characters")
+    @Column(nullable = false, length = 100, unique = true)
+    private String name;
+@Size(max = 1000, message = "Description cannot exceed 1000 characters")
+    @Column(length = 1000)
+    private String description;
+@NotBlank(message = "Address cannot be blank")
+    @Size(max = 255, message = "Address cannot exceed 255 characters")
+    @Column(nullable = false)
+    private String address;
+@NotBlank(message = "Phone number cannot be blank")
+    @Size(max = 20, message = "Phone number cannot exceed 20 characters")
+    @Column(nullable = false, length = 20)
+    private String phoneNumber;
+@Email(message = "Restaurant email should be valid")
+    @Size(max = 100, message = "Restaurant email cannot exceed 100 characters")
+    @Column(length = 100, unique = true)
+    private String email;
+@Column(nullable = false)
+    private boolean isActive = true;
+@ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "restaurant_admins",
+            joinColumns = @JoinColumn(name = "restaurant_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id"))
+    private Set<User> restaurantAdmins = new HashSet<>();
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/repository/RestaurantRepository.java
+package com.multirestaurantplatform.restaurant.repository;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.Optional;
+@Repository
+public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
+// Example: Find a restaurant by its exact name (case-sensitive)
+    Optional<Restaurant> findByName(String name);
+// Example: Find a restaurant by its email (case-sensitive)
+    Optional<Restaurant> findByEmail(String email);
+// You can add more custom query methods here as needed, e.g.:
+    // List<Restaurant> findByIsActiveTrue();
+    // Page<Restaurant> findByNameContainingIgnoreCase(String name, Pageable pageable);
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantSecurityService.java
+package com.multirestaurantplatform.restaurant.service;
+public interface RestaurantSecurityService {
+/**
+     * Checks if the currently authenticated user (identified by username) is an administrator
+     * for the specified restaurant.
+     *
+     * @param restaurantId The ID of the restaurant to check.
+     * @param username The username of the authenticated user.
+     * @return true if the user is an administrator for the restaurant, false otherwise.
+     */
+    boolean isRestaurantAdminForRestaurant(Long restaurantId, String username);
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantSecurityServiceImpl.java
+package com.multirestaurantplatform.restaurant.service;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
+import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
+import com.multirestaurantplatform.security.model.Role; // Import Role
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
+@Service("restaurantSecurityServiceImpl") // Explicit bean name to match SpEL expression
+@RequiredArgsConstructor
+public class RestaurantSecurityServiceImpl implements RestaurantSecurityService {
+private static final Logger LOGGER = LoggerFactory.getLogger(RestaurantSecurityServiceImpl.class);
+private final RestaurantRepository restaurantRepository;
+    private final UserRepository userRepository;
+@Override
+    @Transactional(readOnly = true) // Ensures the session is active for lazy loading if needed
+    public boolean isRestaurantAdminForRestaurant(Long restaurantId, String username) {
+        LOGGER.debug("SecurityCheck: Checking if user '{}' is admin for restaurant ID '{}'", username, restaurantId);
+Optional<User> userOptional = userRepository.findByUsername(username);
+        if (userOptional.isEmpty()) {
+            LOGGER.warn("SecurityCheck: User '{}' not found.", username);
+            return false; // User not found, so cannot be an admin
+        }
+        User user = userOptional.get();
+// Ensure the user actually has the RESTAURANT_ADMIN role.
+        // While the @PreAuthorize might check hasRole('RESTAURANT_ADMIN') first,
+        // it's good practice for this specific service method to also be mindful of the role
+        // or assume the caller (SpEL) has already filtered by role.
+        // For robustness, we can add a check here, though SpEL usually handles the role part.
+        boolean isRestaurantAdminRole = user.getRoles().stream()
+                .anyMatch(role -> role == Role.RESTAURANT_ADMIN);
+        if (!isRestaurantAdminRole) {
+            LOGGER.debug("SecurityCheck: User '{}' does not have RESTAURANT_ADMIN role.", username);
+            // If the SpEL is "(hasRole('RESTAURANT_ADMIN') AND @bean.method())",
+            // this check might be redundant but harmless.
+            // If SpEL was just "@bean.method()", this check would be critical.
+            return false;
+        }
+Optional<Restaurant> restaurantOptional = restaurantRepository.findById(restaurantId);
+        if (restaurantOptional.isEmpty()) {
+            LOGGER.warn("SecurityCheck: Restaurant ID '{}' not found.", restaurantId);
+            return false; // Restaurant not found
+        }
+        Restaurant restaurant = restaurantOptional.get();
+// Hibernate will lazy-load restaurant.getRestaurantAdmins() if the session is active.
+        // The @Transactional annotation ensures this.
+        // We check if the user's ID is present in the set of admin IDs for the restaurant.
+        boolean isUserAdminForThisRestaurant = restaurant.getRestaurantAdmins().stream()
+                .anyMatch(adminUser -> adminUser.getId().equals(user.getId()));
+if (isUserAdminForThisRestaurant) {
+            LOGGER.info("SecurityCheck: User '{}' IS an admin for restaurant ID '{}'. Access granted by this check.", username, restaurantId);
+        } else {
+            LOGGER.info("SecurityCheck: User '{}' is NOT an admin for restaurant ID '{}'. Access denied by this check.", username, restaurantId);
+        }
+return isUserAdminForThisRestaurant;
+    }
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantService.java
+package com.multirestaurantplatform.restaurant.service;
+import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.dto.UpdateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.model.Restaurant; // Ensure this is the correct model import
+import java.util.List;
+public interface RestaurantService {
+/**
+     * Creates a new restaurant.
+     * @param createDto DTO containing data for the new restaurant.
+     * @return The created Restaurant entity.
+     * @throws com.multirestaurantplatform.common.exception.ConflictException if name or email already exists.
+     */
+    Restaurant createRestaurant(CreateRestaurantRequestDto createDto);
+/**
+     * Finds a restaurant by its ID.
+     * @param id The ID of the restaurant.
+     * @return The found Restaurant entity.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if restaurant not found.
+     */
+    Restaurant findRestaurantById(Long id);
+/**
+     * Retrieves all restaurants.
+     * (Consider adding pagination and filtering in a future iteration)
+     * @return A list of all Restaurant entities.
+     */
+    List<Restaurant> findAllRestaurants();
+/**
+     * Updates an existing restaurant.
+     * @param id The ID of the restaurant to update.
+     * @param updateDto DTO containing data to update.
+     * @return The updated Restaurant entity.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if restaurant not found.
+     * @throws com.multirestaurantplatform.common.exception.ConflictException if updated name or email conflicts with another restaurant.
+     */
+    Restaurant updateRestaurant(Long id, UpdateRestaurantRequestDto updateDto);
+/**
+     * Deletes a restaurant by its ID.
+     * (Consider soft delete by setting isActive=false vs hard delete)
+     * @param id The ID of the restaurant to delete.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if restaurant not found.
+     */
+    void deleteRestaurant(Long id); // For now, a hard delete. Soft delete can be implemented by updating 'isActive'.
+// Future methods could include:
+    // Restaurant addAdminToRestaurant(Long restaurantId, Long userId);
+    // Restaurant removeAdminFromRestaurant(Long restaurantId, Long userId);
+}
+File: backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantServiceImpl.java
+package com.multirestaurantplatform.restaurant.service;
+import com.multirestaurantplatform.common.exception.ConflictException;
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
+import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.dto.UpdateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
+import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils; // Import StringUtils
+import java.util.List;
+@Service
+@RequiredArgsConstructor // Lombok for constructor injection
+public class RestaurantServiceImpl implements RestaurantService {
+private static final Logger LOGGER = LoggerFactory.getLogger(RestaurantServiceImpl.class);
+private final RestaurantRepository restaurantRepository;
+@Override
+    @Transactional
+    public Restaurant createRestaurant(CreateRestaurantRequestDto createDto) {
+        LOGGER.info("Attempting to create restaurant with name: {}", createDto.getName());
+restaurantRepository.findByName(createDto.getName()).ifPresent(r -> {
+            LOGGER.warn("Restaurant creation failed: name '{}' already exists.", createDto.getName());
+            throw new ConflictException("Restaurant with name '" + createDto.getName() + "' already exists.");
+        });
+if (StringUtils.hasText(createDto.getEmail())) { // Use StringUtils.hasText
+            restaurantRepository.findByEmail(createDto.getEmail()).ifPresent(r -> {
+                LOGGER.warn("Restaurant creation failed: email '{}' already exists.", createDto.getEmail());
+                throw new ConflictException("Restaurant with email '" + createDto.getEmail() + "' already exists.");
+            });
+        }
+Restaurant restaurant = new Restaurant();
+        restaurant.setName(createDto.getName());
+        restaurant.setDescription(createDto.getDescription());
+        restaurant.setAddress(createDto.getAddress());
+        restaurant.setPhoneNumber(createDto.getPhoneNumber());
+        restaurant.setEmail(createDto.getEmail());
+        restaurant.setActive(true);
+Restaurant savedRestaurant = restaurantRepository.save(restaurant);
+        LOGGER.info("Restaurant created successfully with ID: {}", savedRestaurant.getId());
+        return savedRestaurant;
+    }
+@Override
+    @Transactional(readOnly = true)
+    public Restaurant findRestaurantById(Long id) {
+        LOGGER.debug("Attempting to find restaurant with ID: {}", id);
+        return restaurantRepository.findById(id)
+                .orElseThrow(() -> {
+                    LOGGER.warn("Restaurant not found with ID: {}", id);
+                    return new ResourceNotFoundException("Restaurant not found with ID: " + id);
+                });
+    }
+@Override
+    @Transactional(readOnly = true)
+    public List<Restaurant> findAllRestaurants() {
+        LOGGER.debug("Fetching all restaurants");
+        return restaurantRepository.findAll();
+    }
+@Override
+    @Transactional
+    public Restaurant updateRestaurant(Long id, UpdateRestaurantRequestDto updateDto) {
+        LOGGER.info("Attempting to update restaurant with ID: {}", id);
+        Restaurant restaurant = findRestaurantById(id); // Throws ResourceNotFoundException if not found
+// For each field, check if it's provided in the DTO (i.e., not null)
+        if (updateDto.getName() != null) {
+            String newName = updateDto.getName();
+            if (!newName.equals(restaurant.getName())) {
+                restaurantRepository.findByName(newName).ifPresent(existing -> {
+                    if (!existing.getId().equals(id)) {
+                        LOGGER.warn("Restaurant update failed for ID {}: name '{}' already exists for restaurant ID {}.", id, newName, existing.getId());
+                        throw new ConflictException("Restaurant with name '" + newName + "' already exists.");
+                    }
+                });
+                restaurant.setName(newName);
+            }
+        }
+if (updateDto.getEmail() != null) {
+            String newEmail = updateDto.getEmail();
+            // Check if email is actually changing and if the new email is not empty
+            if (StringUtils.hasText(newEmail) && !newEmail.equals(restaurant.getEmail())) {
+                restaurantRepository.findByEmail(newEmail).ifPresent(existing -> {
+                    if (!existing.getId().equals(id)) {
+                        LOGGER.warn("Restaurant update failed for ID {}: email '{}' already exists for restaurant ID {}.", id, newEmail, existing.getId());
+                        throw new ConflictException("Restaurant with email '" + newEmail + "' already exists.");
+                    }
+                });
+                restaurant.setEmail(newEmail);
+            } else if (updateDto.getEmail().isEmpty() && restaurant.getEmail() != null) {
+                // If an empty string is explicitly passed for email, set it to null (or handle as per business rule)
+                // Assuming here that an empty string means "clear the email"
+                restaurant.setEmail(null);
+            }
+        }
+        // Note: If the client sends "email": null, updateDto.getEmail() will be null, and this block is skipped.
+        // If the client sends "email": "", updateDto.getEmail() will be an empty string.
+if (updateDto.getDescription() != null) {
+            restaurant.setDescription(updateDto.getDescription());
+        }
+        if (updateDto.getAddress() != null) {
+            restaurant.setAddress(updateDto.getAddress());
+        }
+        if (updateDto.getPhoneNumber() != null) {
+            restaurant.setPhoneNumber(updateDto.getPhoneNumber());
+        }
+        if (updateDto.getIsActive() != null) {
+            restaurant.setActive(updateDto.getIsActive());
+        }
+Restaurant updatedRestaurant = restaurantRepository.save(restaurant);
+        LOGGER.info("Restaurant with ID: {} updated successfully.", id);
+        return updatedRestaurant;
+    }
+@Override
+    @Transactional
+    public void deleteRestaurant(Long id) {
+        LOGGER.info("Attempting to delete restaurant with ID: {}", id);
+        if (!restaurantRepository.existsById(id)) {
+            LOGGER.warn("Restaurant deletion failed: not found with ID: {}", id);
+            throw new ResourceNotFoundException("Restaurant not found with ID: " + id + " for deletion.");
+        }
+        restaurantRepository.deleteById(id);
+        LOGGER.info("Restaurant with ID: {} deleted successfully.", id);
+    }
+}
+File: backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service/RestaurantServiceImplTest.java
+package com.multirestaurantplatform.restaurant.service;
+import com.multirestaurantplatform.common.exception.ConflictException;
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
+import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.dto.UpdateRestaurantRequestDto;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
+import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+@ExtendWith(MockitoExtension.class)
+class RestaurantServiceImplTest {
+@Mock
+    private RestaurantRepository restaurantRepository;
+@InjectMocks
+    private RestaurantServiceImpl restaurantService;
+private Restaurant restaurant;
+    private CreateRestaurantRequestDto createDto;
+    private UpdateRestaurantRequestDto updateDto;
+@BeforeEach
+    void setUp() {
+        restaurant = new Restaurant();
+        restaurant.setId(1L);
+        restaurant.setName("Test Restaurant");
+        restaurant.setEmail("test@restaurant.com");
+        restaurant.setAddress("123 Test St");
+        restaurant.setPhoneNumber("555-1234");
+        restaurant.setActive(true);
+createDto = new CreateRestaurantRequestDto();
+        createDto.setName("New Restaurant");
+        createDto.setEmail("new@restaurant.com");
+        createDto.setAddress("456 New Ave");
+        createDto.setPhoneNumber("555-5678");
+        createDto.setDescription("A new place to eat.");
+// Initialize updateDto, but set fields in specific tests
+        updateDto = new UpdateRestaurantRequestDto();
+    }
+// --- Test cases for createRestaurant ---
+@Test
+    @DisplayName("createRestaurant - Success")
+    void createRestaurant_whenValidRequest_shouldReturnCreatedRestaurant() {
+        when(restaurantRepository.findByName(createDto.getName())).thenReturn(Optional.empty());
+        when(restaurantRepository.findByEmail(createDto.getEmail())).thenReturn(Optional.empty());
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> {
+            Restaurant r = invocation.getArgument(0);
+            r.setId(2L);
+            return r;
+        });
+Restaurant createdRestaurant = restaurantService.createRestaurant(createDto);
+assertNotNull(createdRestaurant);
+        assertEquals(createDto.getName(), createdRestaurant.getName());
+        assertEquals(createDto.getEmail(), createdRestaurant.getEmail());
+        assertEquals(2L, createdRestaurant.getId());
+        assertTrue(createdRestaurant.isActive());
+        verify(restaurantRepository).findByName(createDto.getName());
+        verify(restaurantRepository).findByEmail(createDto.getEmail());
+        verify(restaurantRepository).save(any(Restaurant.class));
+    }
+@Test
+    @DisplayName("createRestaurant - Name Conflict")
+    void createRestaurant_whenNameExists_shouldThrowConflictException() {
+        when(restaurantRepository.findByName(createDto.getName())).thenReturn(Optional.of(restaurant));
+ConflictException exception = assertThrows(ConflictException.class, () -> restaurantService.createRestaurant(createDto));
+        assertEquals("Restaurant with name '" + createDto.getName() + "' already exists.", exception.getMessage());
+        verify(restaurantRepository).findByName(createDto.getName());
+        verify(restaurantRepository, never()).findByEmail(anyString());
+        verify(restaurantRepository, never()).save(any(Restaurant.class));
+    }
+@Test
+    @DisplayName("createRestaurant - Email Conflict")
+    void createRestaurant_whenEmailExists_shouldThrowConflictException() {
+        when(restaurantRepository.findByName(createDto.getName())).thenReturn(Optional.empty());
+        when(restaurantRepository.findByEmail(createDto.getEmail())).thenReturn(Optional.of(restaurant));
+ConflictException exception = assertThrows(ConflictException.class, () -> restaurantService.createRestaurant(createDto));
+        assertEquals("Restaurant with email '" + createDto.getEmail() + "' already exists.", exception.getMessage());
+        verify(restaurantRepository).findByName(createDto.getName());
+        verify(restaurantRepository).findByEmail(createDto.getEmail());
+        verify(restaurantRepository, never()).save(any(Restaurant.class));
+    }
+// --- Test cases for findRestaurantById ---
+@Test
+    @DisplayName("findRestaurantById - Success")
+    void findRestaurantById_whenRestaurantExists_shouldReturnRestaurant() {
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.of(restaurant));
+        Restaurant foundRestaurant = restaurantService.findRestaurantById(1L);
+        assertNotNull(foundRestaurant);
+        assertEquals(restaurant.getId(), foundRestaurant.getId());
+        verify(restaurantRepository).findById(1L);
+    }
+@Test
+    @DisplayName("findRestaurantById - Not Found")
+    void findRestaurantById_whenRestaurantDoesNotExist_shouldThrowResourceNotFoundException() {
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.empty());
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> restaurantService.findRestaurantById(1L));
+        assertEquals("Restaurant not found with ID: 1", exception.getMessage());
+        verify(restaurantRepository).findById(1L);
+    }
+// --- Test cases for findAllRestaurants ---
+@Test
+    @DisplayName("findAllRestaurants - Success with Restaurants")
+    void findAllRestaurants_whenRestaurantsExist_shouldReturnListOfRestaurants() {
+        when(restaurantRepository.findAll()).thenReturn(List.of(restaurant));
+        List<Restaurant> restaurants = restaurantService.findAllRestaurants();
+        assertNotNull(restaurants);
+        assertFalse(restaurants.isEmpty());
+        assertEquals(1, restaurants.size());
+        verify(restaurantRepository).findAll();
+    }
+@Test
+    @DisplayName("findAllRestaurants - Success with No Restaurants")
+    void findAllRestaurants_whenNoRestaurantsExist_shouldReturnEmptyList() {
+        when(restaurantRepository.findAll()).thenReturn(Collections.emptyList());
+        List<Restaurant> restaurants = restaurantService.findAllRestaurants();
+        assertNotNull(restaurants);
+        assertTrue(restaurants.isEmpty());
+        verify(restaurantRepository).findAll();
+    }
+// --- Test cases for updateRestaurant ---
+@Test
+    @DisplayName("updateRestaurant - Success Full Update")
+    void updateRestaurant_whenValidRequest_shouldReturnUpdatedRestaurant() {
+        Long restaurantId = 1L;
+        // Set fields directly, not with Optional.of()
+        updateDto.setName("Updated Name");
+        updateDto.setEmail("updated@restaurant.com");
+        updateDto.setDescription("Updated Description");
+        updateDto.setAddress("Updated Address");
+        updateDto.setPhoneNumber("555-0000");
+        updateDto.setIsActive(false);
+when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
+        // Mock conflict checks for new name/email if they are different from original
+        when(restaurantRepository.findByName("Updated Name")).thenReturn(Optional.empty());
+        when(restaurantRepository.findByEmail("updated@restaurant.com")).thenReturn(Optional.empty());
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+Restaurant updatedRestaurant = restaurantService.updateRestaurant(restaurantId, updateDto);
+assertNotNull(updatedRestaurant);
+        assertEquals("Updated Name", updatedRestaurant.getName());
+        assertEquals("updated@restaurant.com", updatedRestaurant.getEmail());
+        assertEquals("Updated Description", updatedRestaurant.getDescription());
+        assertEquals("Updated Address", updatedRestaurant.getAddress());
+        assertEquals("555-0000", updatedRestaurant.getPhoneNumber());
+        assertFalse(updatedRestaurant.isActive());
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).save(restaurant);
+    }
+@Test
+    @DisplayName("updateRestaurant - Success Partial Update (Only Name)")
+    void updateRestaurant_whenPartialRequest_shouldUpdateOnlyProvidedFields() {
+        Long restaurantId = 1L;
+        String originalEmail = restaurant.getEmail();
+        // Set only the name directly
+        updateDto.setName("Partially Updated Name");
+        // Other fields in updateDto remain null
+when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.findByName("Partially Updated Name")).thenReturn(Optional.empty());
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+Restaurant updatedRestaurant = restaurantService.updateRestaurant(restaurantId, updateDto);
+assertNotNull(updatedRestaurant);
+        assertEquals("Partially Updated Name", updatedRestaurant.getName());
+        assertEquals(originalEmail, updatedRestaurant.getEmail()); // Email should not change
+        assertEquals(restaurant.getDescription(), updatedRestaurant.getDescription());
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).save(restaurant);
+    }
+@Test
+    @DisplayName("updateRestaurant - Not Found")
+    void updateRestaurant_whenRestaurantDoesNotExist_shouldThrowResourceNotFoundException() {
+        Long restaurantId = 99L;
+        updateDto.setName("Doesn't Matter"); // Set directly
+        when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.empty());
+ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            restaurantService.updateRestaurant(restaurantId, updateDto);
+        });
+        assertEquals("Restaurant not found with ID: " + restaurantId, exception.getMessage());
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository, never()).save(any(Restaurant.class));
+    }
+@Test
+    @DisplayName("updateRestaurant - Name Conflict")
+    void updateRestaurant_whenNewNameConflicts_shouldThrowConflictException() {
+        Long restaurantId = 1L;
+        String conflictingName = "Existing Other Restaurant";
+        updateDto.setName(conflictingName); // Set directly
+Restaurant otherRestaurant = new Restaurant();
+        otherRestaurant.setId(2L);
+        otherRestaurant.setName(conflictingName);
+when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.findByName(conflictingName)).thenReturn(Optional.of(otherRestaurant));
+ConflictException exception = assertThrows(ConflictException.class, () -> {
+            restaurantService.updateRestaurant(restaurantId, updateDto);
+        });
+        assertEquals("Restaurant with name '" + conflictingName + "' already exists.", exception.getMessage());
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).findByName(conflictingName);
+        verify(restaurantRepository, never()).save(any(Restaurant.class));
+    }
+@Test
+    @DisplayName("updateRestaurant - Email Conflict")
+    void updateRestaurant_whenNewEmailConflicts_shouldThrowConflictException() {
+        Long restaurantId = 1L;
+        String conflictingEmail = "existing.other@restaurant.com";
+        updateDto.setEmail(conflictingEmail); // Set directly
+        // updateDto.setName(null); // Ensure name is not being updated or doesn't conflict
+Restaurant otherRestaurant = new Restaurant();
+        otherRestaurant.setId(2L);
+        otherRestaurant.setEmail(conflictingEmail);
+when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
+        // If name is also being updated, mock its non-conflict:
+        // if (updateDto.getName() != null) {
+        //    when(restaurantRepository.findByName(updateDto.getName())).thenReturn(Optional.empty());
+        // }
+        when(restaurantRepository.findByEmail(conflictingEmail)).thenReturn(Optional.of(otherRestaurant));
+ConflictException exception = assertThrows(ConflictException.class, () -> {
+            restaurantService.updateRestaurant(restaurantId, updateDto);
+        });
+        assertEquals("Restaurant with email '" + conflictingEmail + "' already exists.", exception.getMessage());
+        verify(restaurantRepository).findById(restaurantId);
+        verify(restaurantRepository).findByEmail(conflictingEmail);
+        verify(restaurantRepository, never()).save(any(Restaurant.class));
+    }
+@Test
+    @DisplayName("updateRestaurant - Update Name to Same Name (No Conflict Check)")
+    void updateRestaurant_whenNameIsSame_shouldNotTriggerConflictCheckForName() {
+        Long restaurantId = 1L;
+        updateDto.setName(restaurant.getName()); // Set directly - same name as existing
+when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(restaurant));
+        when(restaurantRepository.save(any(Restaurant.class))).thenReturn(restaurant);
+restaurantService.updateRestaurant(restaurantId, updateDto);
+verify(restaurantRepository).findById(restaurantId);
+        // Since the name in DTO is the same as the existing one, the findByName check for conflict should be skipped.
+        verify(restaurantRepository, never()).findByName(restaurant.getName());
+        verify(restaurantRepository).save(restaurant);
+    }
+// --- Test cases for deleteRestaurant ---
+@Test
+    @DisplayName("deleteRestaurant - Success")
+    void deleteRestaurant_whenRestaurantExists_shouldDeleteRestaurant() {
+        Long restaurantId = 1L;
+        when(restaurantRepository.existsById(restaurantId)).thenReturn(true);
+        doNothing().when(restaurantRepository).deleteById(restaurantId);
+restaurantService.deleteRestaurant(restaurantId);
+verify(restaurantRepository).existsById(restaurantId);
+        verify(restaurantRepository).deleteById(restaurantId);
+    }
+@Test
+    @DisplayName("deleteRestaurant - Not Found")
+    void deleteRestaurant_whenRestaurantDoesNotExist_shouldThrowResourceNotFoundException() {
+        Long restaurantId = 99L;
+        when(restaurantRepository.existsById(restaurantId)).thenReturn(false);
+ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            restaurantService.deleteRestaurant(restaurantId);
+        });
+        assertEquals("Restaurant not found with ID: " + restaurantId + " for deletion.", exception.getMessage());
+        verify(restaurantRepository).existsById(restaurantId);
+        verify(restaurantRepository, never()).deleteById(anyLong());
+    }
 }
 File: backend/security/build.gradle
 // File: multi-restaurant-platform/backend/security/build.gradle
@@ -1621,7 +2895,6 @@ Folder: backend/api/src/main/java/com/multirestaurantplatform/api/payload (nothi
 Folder: backend/common/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/common/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/common/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
-Folder: backend/menu/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/menu/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/menu/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/menu/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
@@ -1637,9 +2910,7 @@ Folder: backend/print/src/main/java (nothing implemented yet for this folder as 
 Folder: backend/print/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/print/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/print/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
-Folder: backend/restaurant/src/main/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/restaurant/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
-Folder: backend/restaurant/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/restaurant/src/test/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/security/src/main/resources (nothing implemented yet for this folder as it is empty or contains no scannable items)
 Folder: backend/security/src/test/java (nothing implemented yet for this folder as it is empty or contains no scannable items)
