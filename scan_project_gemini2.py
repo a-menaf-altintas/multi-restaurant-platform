@@ -47,7 +47,7 @@ DEFAULT_FILES_WITH_CONTENT_BY_EXT = {
     '.c', '.cpp', '.h', '.hpp', '.cs', '.go', '.rs', '.swift', # Compiled
     '.sql', '.sh', '.bash', '.ps1', # Scripts & Data
     '.xml', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', # Config
-    '.md', '.txt', '.rst' # Documentation
+    '.md', '.rst' # Documentation
 }
 
 # Directories to always ignore
