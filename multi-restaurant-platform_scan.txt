@@ -36,13 +36,23 @@ Legend: ✅ finished · 🟡 in progress · 🔲 not started
 [DIR] backend/order/src/test
 [DIR] backend/order/src/test/resources
 [DIR] backend/order/src/test/java
+[DIR] backend/order/src/test/java/com
+[DIR] backend/order/src/test/java/com/multirestaurantplatform
+[DIR] backend/order/src/test/java/com/multirestaurantplatform/order
+[DIR] backend/order/src/test/java/com/multirestaurantplatform/order/controller
 [DIR] backend/order/src/main
 [DIR] backend/order/src/main/resources
 [DIR] backend/order/src/main/java
 [DIR] backend/order/src/main/java/com
 [DIR] backend/order/src/main/java/com/multirestaurantplatform
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/dto
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/controller
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/model
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/model/cart
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/service
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/service/client
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/exception
 [DIR] backend/restaurant
 [DIR] backend/restaurant/src
 [DIR] backend/restaurant/src/test
@@ -369,6 +379,7 @@ services:
     restart: unless-stopped
 === gradlew ===
 === gradlew.bat ===
+=== multi-restaurant-platform_scan.txt ===
 === scan_project_chatGPT.py ===
 === scan_project_gemini.py ===
 === scan_project_gemini2.py ===
@@ -399,18 +410,1308 @@ description = 'Parent module for all backend services'
 // This file primarily serves as a marker for the 'backend' project
 // and can be used for shared configurations among all backend modules later.
 === backend/order/build.gradle ===
-// File: multi-restaurant-platform/backend/order/build.gradle
-// Replace order with order, security, etc.
 plugins {
-    id 'java-library' // Use 'java-library' for modules that are intended to be used as libraries by other modules
+    id 'java-library'
 }
 
-description = 'The order module' // e.g., 'The order module'
+description = 'The order module - defines order entities, cart functionality, and potentially services/repositories'
 
 dependencies {
-    // Module-specific dependencies will be added here later
-    // Example:
-    // implementation 'org.springframework.boot:spring-boot-starter' // If it needs basic Spring Boot utilities but is not a web app
+    // For Jakarta Persistence API (JPA) entities and Spring Data JPA
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // For using validation annotations like @NotNull, @Min etc. in DTOs
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // For Spring Web (needed for @RestController, @RequestMapping, ResponseEntity, etc.)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // For OpenAPI 3.0 (Swagger) annotations and UI generation
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0' // Check for the latest version for your Spring Boot version
+
+    // Dependency on the common module (if needed for main source, e.g. BaseEntity, custom exceptions)
+    // implementation project(':backend:common')
+
+    // Lombok (Optional - uncomment if you want to use it)
+    // compileOnly 'org.projectlombok:lombok'
+    // annotationProcessor 'org.projectlombok:lombok'
+
+    // --- Test Dependencies ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test' // For @WithMockUser
+
+    // Add dependency on the security module for test compilation and runtime
+    testImplementation project(':backend:security')
+
+    // Add dependency on the api module for test compilation and runtime
+    // This allows CartControllerTest to import GlobalExceptionHandler from the api module.
+    testImplementation project(':backend:api')
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/dto/AddItemToCartRequest.java ===
+package com.multirestaurantplatform.order.dto;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
+public class AddItemToCartRequest {
+    @NotNull(message = "Restaurant ID cannot be null")
+    private Long restaurantId;
+
+    @NotNull(message = "Menu item ID cannot be null")
+    private Long menuItemId;
+
+    @NotNull(message = "Quantity cannot be null")
+    @Min(value = 1, message = "Quantity must be at least 1")
+    private Integer quantity;
+
+    // Constructors, Getters, and Setters
+    public AddItemToCartRequest() {
+    }
+
+    public AddItemToCartRequest(Long restaurantId, Long menuItemId, Integer quantity) {
+        this.restaurantId = restaurantId;
+        this.menuItemId = menuItemId;
+        this.quantity = quantity;
+    }
+
+    public Long getRestaurantId() {
+        return restaurantId;
+    }
+
+    public void setRestaurantId(Long restaurantId) {
+        this.restaurantId = restaurantId;
+    }
+
+    public Long getMenuItemId() {
+        return menuItemId;
+    }
+
+    public void setMenuItemId(Long menuItemId) {
+        this.menuItemId = menuItemId;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/dto/CartItemResponse.java ===
+package com.multirestaurantplatform.order.dto;
+
+import java.math.BigDecimal;
+
+public class CartItemResponse {
+    private Long menuItemId;
+    private String menuItemName;
+    private Integer quantity;
+    private BigDecimal unitPrice;
+    private BigDecimal totalPrice;
+
+    // Constructors, Getters, and Setters
+    public CartItemResponse() {
+    }
+
+    public CartItemResponse(Long menuItemId, String menuItemName, Integer quantity, BigDecimal unitPrice, BigDecimal totalPrice) {
+        this.menuItemId = menuItemId;
+        this.menuItemName = menuItemName;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.totalPrice = totalPrice;
+    }
+
+    // ... (make sure all getters and setters are present as per the previous full code block) ...
+    public Long getMenuItemId() { return menuItemId; }
+    public void setMenuItemId(Long menuItemId) { this.menuItemId = menuItemId; }
+    public String getMenuItemName() { return menuItemName; }
+    public void setMenuItemName(String menuItemName) { this.menuItemName = menuItemName; }
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public BigDecimal getUnitPrice() { return unitPrice; }
+    public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
+    public BigDecimal getTotalPrice() { return totalPrice; }
+    public void setTotalPrice(BigDecimal totalPrice) { this.totalPrice = totalPrice; }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/dto/CartResponse.java ===
+package com.multirestaurantplatform.order.dto;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class CartResponse {
+    private String userId;
+    private Long restaurantId;
+    private String restaurantName;
+    private List<CartItemResponse> items;
+    private BigDecimal cartTotalPrice;
+
+    // Constructors, Getters, and Setters
+    public CartResponse() {
+    }
+
+    public CartResponse(String userId, Long restaurantId, String restaurantName, List<CartItemResponse> items, BigDecimal cartTotalPrice) {
+        this.userId = userId;
+        this.restaurantId = restaurantId;
+        this.restaurantName = restaurantName;
+        this.items = items;
+        this.cartTotalPrice = cartTotalPrice;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public Long getRestaurantId() {
+        return restaurantId;
+    }
+
+    public void setRestaurantId(Long restaurantId) {
+        this.restaurantId = restaurantId;
+    }
+
+    public String getRestaurantName() {
+        return restaurantName;
+    }
+
+    public void setRestaurantName(String restaurantName) {
+        this.restaurantName = restaurantName;
+    }
+
+    public List<CartItemResponse> getItems() {
+        return items;
+    }
+
+    public void setItems(List<CartItemResponse> items) {
+        this.items = items;
+    }
+
+    public BigDecimal getCartTotalPrice() {
+        return cartTotalPrice;
+    }
+
+    public void setCartTotalPrice(BigDecimal cartTotalPrice) {
+        this.cartTotalPrice = cartTotalPrice;
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/dto/UpdateCartItemRequest.java ===
+package com.multirestaurantplatform.order.dto;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
+public class UpdateCartItemRequest {
+    @NotNull(message = "Quantity cannot be null")
+    @Min(value = 1, message = "Quantity must be at least 1")
+    private Integer quantity;
+
+    // Constructors, Getters, and Setters
+    public UpdateCartItemRequest() {
+    }
+
+    public UpdateCartItemRequest(Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/controller/CartController.java ===
+package com.multirestaurantplatform.order.controller;
+
+import com.multirestaurantplatform.order.dto.AddItemToCartRequest;
+import com.multirestaurantplatform.order.dto.CartResponse;
+import com.multirestaurantplatform.order.dto.UpdateCartItemRequest;
+import com.multirestaurantplatform.order.service.CartService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+// Note: Ensure spring-security-core is a dependency if @AuthenticationPrincipal is to be used.
+// import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
+@RestController
+@RequestMapping("/api/v1/users/{userId}/cart") // Using userId in path for explicit context
+@Tag(name = "Cart API", description = "Operations pertaining to user shopping cart")
+public class CartController {
+
+    private final CartService cartService;
+
+    @Autowired
+    public CartController(CartService cartService) {
+        this.cartService = cartService;
+    }
+
+    @Operation(summary = "Add an item to the user's cart",
+            description = "Adds a specified quantity of a menu item to the cart. If the cart or item does not exist, it will be created. If adding from a different restaurant, current cart may be cleared.")
+    @ApiResponse(responseCode = "200", description = "Item added successfully, returns updated cart")
+    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., item not found, validation error)")
+    @PostMapping("/items")
+    public ResponseEntity<CartResponse> addItemToCart(
+            @Parameter(description = "ID of the user whose cart is being modified") @PathVariable("userId") String userId, // Explicitly named
+            @Valid @RequestBody AddItemToCartRequest addItemRequest) {
+        // In a real app with Spring Security, you might get userId from @AuthenticationPrincipal
+        CartResponse cartResponse = cartService.addItemToCart(userId, addItemRequest);
+        return ResponseEntity.ok(cartResponse);
+    }
+
+    @Operation(summary = "Get the user's current cart")
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved cart")
+    @GetMapping
+    public ResponseEntity<CartResponse> getCart(
+            @Parameter(description = "ID of the user whose cart is being retrieved") @PathVariable("userId") String userId) { // Explicitly named
+        CartResponse cartResponse = cartService.getCart(userId);
+        return ResponseEntity.ok(cartResponse);
+    }
+
+    @Operation(summary = "Update quantity of an item in the cart",
+            description = "Updates the quantity of a specific menu item already in the cart.")
+    @ApiResponse(responseCode = "200", description = "Item updated successfully, returns updated cart")
+    @ApiResponse(responseCode = "404", description = "Cart or menu item not found in cart")
+    @PutMapping("/items/{menuItemId}")
+    public ResponseEntity<CartResponse> updateCartItem(
+            @Parameter(description = "ID of the user") @PathVariable("userId") String userId, // Explicitly named
+            @Parameter(description = "ID of the menu item to update") @PathVariable("menuItemId") Long menuItemId, // Explicitly named
+            @Valid @RequestBody UpdateCartItemRequest updateRequest) {
+        CartResponse cartResponse = cartService.updateCartItem(userId, menuItemId, updateRequest);
+        return ResponseEntity.ok(cartResponse);
+    }
+
+    @Operation(summary = "Remove an item from the cart")
+    @ApiResponse(responseCode = "200", description = "Item removed successfully, returns updated cart")
+    @ApiResponse(responseCode = "404", description = "Cart or menu item not found in cart")
+    @DeleteMapping("/items/{menuItemId}")
+    public ResponseEntity<CartResponse> removeCartItem(
+            @Parameter(description = "ID of the user") @PathVariable("userId") String userId, // Explicitly named
+            @Parameter(description = "ID of the menu item to remove") @PathVariable("menuItemId") Long menuItemId) { // Explicitly named
+        CartResponse cartResponse = cartService.removeCartItem(userId, menuItemId);
+        return ResponseEntity.ok(cartResponse);
+    }
+
+    @Operation(summary = "Clear all items from the user's cart")
+    @ApiResponse(responseCode = "204", description = "Cart cleared successfully")
+    @DeleteMapping
+    public ResponseEntity<Void> clearCart(
+            @Parameter(description = "ID of the user whose cart is being cleared") @PathVariable("userId") String userId) { // Explicitly named
+        cartService.clearCart(userId);
+        return ResponseEntity.noContent().build();
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/model/Order.java ===
+package com.multirestaurantplatform.order.model;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+@Entity
+@Table(name = "orders") // "order" is a reserved keyword in SQL, so "orders" is safer
+public class Order {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private Long customerId; // Assuming Customer entity is managed elsewhere
+
+    @Column(nullable = false)
+    private Long restaurantId; // Assuming Restaurant entity is managed elsewhere
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<OrderItem> orderItems = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderStatus status;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal totalPrice;
+
+    // Delivery Address Details
+    @Column(length = 255)
+    private String deliveryAddressLine1;
+
+    @Column(length = 255)
+    private String deliveryAddressLine2;
+
+    @Column(length = 100)
+    private String deliveryCity;
+
+    @Column(length = 100)
+    private String deliveryState; // Or province
+
+    @Column(length = 20)
+    private String deliveryPostalCode;
+
+    @Column(length = 100)
+    private String deliveryCountry;
+
+    @Column(length = 20)
+    private String customerContactNumber; // For delivery purposes
+
+    @Column(length = 500)
+    private String specialInstructions;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    // Timestamps for status changes - can be expanded
+    private LocalDateTime placedAt;
+    private LocalDateTime confirmedAt;
+    private LocalDateTime preparingAt;
+    private LocalDateTime readyAt; // Ready for pickup or out for delivery
+    private LocalDateTime deliveredAt;
+    private LocalDateTime cancelledAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+        if (status == OrderStatus.PLACED) {
+            placedAt = LocalDateTime.now();
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    // Constructors
+    public Order() {
+    }
+
+    // Getters and Setters
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Long customerId) {
+        this.customerId = customerId;
+    }
+
+    public Long getRestaurantId() {
+        return restaurantId;
+    }
+
+    public void setRestaurantId(Long restaurantId) {
+        this.restaurantId = restaurantId;
+    }
+
+    public List<OrderItem> getOrderItems() {
+        return orderItems;
+    }
+
+    public void setOrderItems(List<OrderItem> orderItems) {
+        this.orderItems = orderItems;
+        // Ensure bidirectional consistency
+        for (OrderItem item : orderItems) {
+            item.setOrder(this);
+        }
+    }
+
+    public void addOrderItem(OrderItem item) {
+        orderItems.add(item);
+        item.setOrder(this);
+    }
+
+    public void removeOrderItem(OrderItem item) {
+        orderItems.remove(item);
+        item.setOrder(null);
+    }
+
+    public OrderStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+        // Update corresponding timestamp when status changes
+        LocalDateTime now = LocalDateTime.now();
+        switch (status) {
+            case PLACED:
+                this.placedAt = now;
+                break;
+            case CONFIRMED:
+                this.confirmedAt = now;
+                break;
+            case PREPARING:
+                this.preparingAt = now;
+                break;
+            case READY_FOR_PICKUP: // or OUT_FOR_DELIVERY can share this
+            case OUT_FOR_DELIVERY:
+                this.readyAt = now;
+                break;
+            case DELIVERED:
+                this.deliveredAt = now;
+                break;
+            case CANCELLED_BY_USER:
+            case CANCELLED_BY_RESTAURANT:
+                this.cancelledAt = now;
+                break;
+            default:
+                break;
+        }
+    }
+
+    public BigDecimal getTotalPrice() {
+        return totalPrice;
+    }
+
+    public void setTotalPrice(BigDecimal totalPrice) {
+        this.totalPrice = totalPrice;
+    }
+
+    public String getDeliveryAddressLine1() {
+        return deliveryAddressLine1;
+    }
+
+    public void setDeliveryAddressLine1(String deliveryAddressLine1) {
+        this.deliveryAddressLine1 = deliveryAddressLine1;
+    }
+
+    public String getDeliveryAddressLine2() {
+        return deliveryAddressLine2;
+    }
+
+    public void setDeliveryAddressLine2(String deliveryAddressLine2) {
+        this.deliveryAddressLine2 = deliveryAddressLine2;
+    }
+
+    public String getDeliveryCity() {
+        return deliveryCity;
+    }
+
+    public void setDeliveryCity(String deliveryCity) {
+        this.deliveryCity = deliveryCity;
+    }
+
+    public String getDeliveryState() {
+        return deliveryState;
+    }
+
+    public void setDeliveryState(String deliveryState) {
+        this.deliveryState = deliveryState;
+    }
+
+    public String getDeliveryPostalCode() {
+        return deliveryPostalCode;
+    }
+
+    public void setDeliveryPostalCode(String deliveryPostalCode) {
+        this.deliveryPostalCode = deliveryPostalCode;
+    }
+
+    public String getDeliveryCountry() {
+        return deliveryCountry;
+    }
+
+    public void setDeliveryCountry(String deliveryCountry) {
+        this.deliveryCountry = deliveryCountry;
+    }
+
+    public String getCustomerContactNumber() {
+        return customerContactNumber;
+    }
+
+    public void setCustomerContactNumber(String customerContactNumber) {
+        this.customerContactNumber = customerContactNumber;
+    }
+
+    public String getSpecialInstructions() {
+        return specialInstructions;
+    }
+
+    public void setSpecialInstructions(String specialInstructions) {
+        this.specialInstructions = specialInstructions;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public LocalDateTime getPlacedAt() {
+        return placedAt;
+    }
+
+    public void setPlacedAt(LocalDateTime placedAt) {
+        this.placedAt = placedAt;
+    }
+
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
+    }
+
+    public void setConfirmedAt(LocalDateTime confirmedAt) {
+        this.confirmedAt = confirmedAt;
+    }
+
+    public LocalDateTime getPreparingAt() {
+        return preparingAt;
+    }
+
+    public void setPreparingAt(LocalDateTime preparingAt) {
+        this.preparingAt = preparingAt;
+    }
+
+    public LocalDateTime getReadyAt() {
+        return readyAt;
+    }
+
+    public void setReadyAt(LocalDateTime readyAt) {
+        this.readyAt = readyAt;
+    }
+
+    public LocalDateTime getDeliveredAt() {
+        return deliveredAt;
+    }
+
+    public void setDeliveredAt(LocalDateTime deliveredAt) {
+        this.deliveredAt = deliveredAt;
+    }
+
+    public LocalDateTime getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public void setCancelledAt(LocalDateTime cancelledAt) {
+        this.cancelledAt = cancelledAt;
+    }
+
+    // equals, hashCode, toString
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Order order = (Order) o;
+        return Objects.equals(id, order.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
+    @Override
+    public String toString() {
+        return "Order{" +
+                "id=" + id +
+                ", customerId=" + customerId +
+                ", restaurantId=" + restaurantId +
+                ", status=" + status +
+                ", totalPrice=" + totalPrice +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
+                '}';
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/model/OrderItem.java ===
+package com.multirestaurantplatform.order.model;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.util.Objects;
+
+@Entity
+@Table(name = "order_items")
+public class OrderItem {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
+
+    @Column(nullable = false)
+    private Long menuItemId; // Assuming MenuItem entity is managed elsewhere (e.g., Menu module)
+
+    @Column(nullable = false, length = 255)
+    private String menuItemName; // Denormalized for easier display, can be fetched if needed
+
+    @Column(nullable = false)
+    private Integer quantity;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal unitPrice; // Price of a single unit at the time of order
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal itemTotalPrice; // quantity * unitPrice
+
+    // Optional: store selected options if menu items can be customized
+    @Column(length = 1000) // Store as JSON string or use a separate table for complex options
+    private String selectedOptions;
+
+
+    // Constructors
+    public OrderItem() {
+    }
+
+    // Getters and Setters
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Order getOrder() {
+        return order;
+    }
+
+    public void setOrder(Order order) {
+        this.order = order;
+    }
+
+    public Long getMenuItemId() {
+        return menuItemId;
+    }
+
+    public void setMenuItemId(Long menuItemId) {
+        this.menuItemId = menuItemId;
+    }
+
+    public String getMenuItemName() {
+        return menuItemName;
+    }
+
+    public void setMenuItemName(String menuItemName) {
+        this.menuItemName = menuItemName;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
+
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public void setUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
+    }
+
+    public BigDecimal getItemTotalPrice() {
+        return itemTotalPrice;
+    }
+
+    public void setItemTotalPrice(BigDecimal itemTotalPrice) {
+        this.itemTotalPrice = itemTotalPrice;
+    }
+
+    public String getSelectedOptions() {
+        return selectedOptions;
+    }
+
+    public void setSelectedOptions(String selectedOptions) {
+        this.selectedOptions = selectedOptions;
+    }
+
+    // equals, hashCode, toString
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OrderItem orderItem = (OrderItem) o;
+        return Objects.equals(id, orderItem.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
+    @Override
+    public String toString() {
+        return "OrderItem{" +
+                "id=" + id +
+                ", menuItemId=" + menuItemId +
+                ", menuItemName='" + menuItemName + '\'' +
+                ", quantity=" + quantity +
+                ", unitPrice=" + unitPrice +
+                ", itemTotalPrice=" + itemTotalPrice +
+                '}';
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/model/OrderStatus.java ===
+package com.multirestaurantplatform.order.model;
+
+public enum OrderStatus {
+    PENDING_PAYMENT, // Optional: If payment is deferred
+    PLACED,          // Initial status after successful order creation and payment
+    CONFIRMED,       // Restaurant confirms they have received and accepted the order
+    PREPARING,       // Restaurant is preparing the order
+    READY_FOR_PICKUP,// Order is ready for pickup (if applicable)
+    OUT_FOR_DELIVERY, // Order is out for delivery (if applicable)
+    DELIVERED,       // Order has been successfully delivered
+    CANCELLED_BY_USER,
+    CANCELLED_BY_RESTAURANT,
+    FAILED           // If order processing failed for some reason (e.g., payment failed post-placement)
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/model/cart/Cart.java ===
+package com.multirestaurantplatform.order.model.cart;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public class Cart {
+    private String userId; // Or session ID
+    private Long restaurantId; // A cart is typically associated with a single restaurant
+    private String restaurantName; // For display convenience
+    private List<CartItem> items;
+    private BigDecimal cartTotalPrice;
+
+    public Cart(String userId) {
+        this.userId = userId;
+        this.items = new ArrayList<>();
+        this.cartTotalPrice = BigDecimal.ZERO;
+    }
+
+    public Cart(String userId, Long restaurantId, String restaurantName) {
+        this.userId = userId;
+        this.restaurantId = restaurantId;
+        this.restaurantName = restaurantName;
+        this.items = new ArrayList<>();
+        this.cartTotalPrice = BigDecimal.ZERO;
+    }
+
+
+    // Getters and Setters
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public Long getRestaurantId() {
+        return restaurantId;
+    }
+
+    public void setRestaurantId(Long restaurantId) {
+        this.restaurantId = restaurantId;
+    }
+
+    public String getRestaurantName() {
+        return restaurantName;
+    }
+
+    public void setRestaurantName(String restaurantName) {
+        this.restaurantName = restaurantName;
+    }
+
+    public List<CartItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<CartItem> items) {
+        this.items = items;
+        recalculateCartTotalPrice();
+    }
+
+    public BigDecimal getCartTotalPrice() {
+        return cartTotalPrice;
+    }
+
+    // Internal method to recalculate total
+    public void recalculateCartTotalPrice() {
+        this.cartTotalPrice = items.stream()
+                                   .map(CartItem::getTotalPrice)
+                                   .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Cart cart = (Cart) o;
+        return Objects.equals(userId, cart.userId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(userId);
+    }
+
+    @Override
+    public String toString() {
+        return "Cart{" +
+                "userId='" + userId + '\'' +
+                ", restaurantId=" + restaurantId +
+                ", restaurantName='" + restaurantName + '\'' +
+                ", itemsCount=" + (items != null ? items.size() : 0) +
+                ", cartTotalPrice=" + cartTotalPrice +
+                '}';
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/model/cart/CartItem.java ===
+package com.multirestaurantplatform.order.model.cart;
+
+import java.math.BigDecimal;
+import java.util.Objects;
+
+public class CartItem {
+    private Long menuItemId;
+    private String menuItemName;
+    private Integer quantity;
+    private BigDecimal unitPrice;
+    private BigDecimal totalPrice;
+    // Potentially add restaurantId if items from different restaurants could be in a "wishlist"
+    // but for an active order cart, items are usually from one restaurant.
+
+    public CartItem() {
+    }
+
+    public CartItem(Long menuItemId, String menuItemName, Integer quantity, BigDecimal unitPrice) {
+        this.menuItemId = menuItemId;
+        this.menuItemName = menuItemName;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+    }
+
+    // Getters and Setters
+    public Long getMenuItemId() {
+        return menuItemId;
+    }
+
+    public void setMenuItemId(Long menuItemId) {
+        this.menuItemId = menuItemId;
+    }
+
+    public String getMenuItemName() {
+        return menuItemName;
+    }
+
+    public void setMenuItemName(String menuItemName) {
+        this.menuItemName = menuItemName;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+        // Recalculate total price if unitPrice is set
+        if (this.unitPrice != null) {
+            this.totalPrice = this.unitPrice.multiply(BigDecimal.valueOf(quantity));
+        }
+    }
+
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public void setUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
+        // Recalculate total price if quantity is set
+        if (this.quantity != null) {
+            this.totalPrice = this.unitPrice.multiply(BigDecimal.valueOf(this.quantity));
+        }
+    }
+
+    public BigDecimal getTotalPrice() {
+        return totalPrice;
+    }
+
+    public void setTotalPrice(BigDecimal totalPrice) {
+        this.totalPrice = totalPrice;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CartItem cartItem = (CartItem) o;
+        return Objects.equals(menuItemId, cartItem.menuItemId); // Typically, a cart item is unique by its menuItemId
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(menuItemId);
+    }
+
+    @Override
+    public String toString() {
+        return "CartItem{" +
+                "menuItemId=" + menuItemId +
+                ", menuItemName='" + menuItemName + '\'' +
+                ", quantity=" + quantity +
+                ", unitPrice=" + unitPrice +
+                ", totalPrice=" + totalPrice +
+                '}';
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/service/CartService.java ===
+package com.multirestaurantplatform.order.service;
+
+import com.multirestaurantplatform.order.dto.AddItemToCartRequest;
+import com.multirestaurantplatform.order.dto.CartResponse;
+import com.multirestaurantplatform.order.dto.UpdateCartItemRequest;
+
+public interface CartService {
+    CartResponse addItemToCart(String userId, AddItemToCartRequest addItemRequest);
+    CartResponse getCart(String userId);
+    CartResponse updateCartItem(String userId, Long menuItemId, UpdateCartItemRequest updateRequest);
+    CartResponse removeCartItem(String userId, Long menuItemId);
+    void clearCart(String userId);
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/service/InMemoryCartServiceImpl.java ===
+package com.multirestaurantplatform.order.service;
+
+import com.multirestaurantplatform.order.dto.*;
+import com.multirestaurantplatform.order.exception.CartNotFoundException;
+import com.multirestaurantplatform.order.exception.CartUpdateException;
+import com.multirestaurantplatform.order.exception.MenuItemNotFoundInCartException;
+import com.multirestaurantplatform.order.model.cart.Cart;
+import com.multirestaurantplatform.order.model.cart.CartItem;
+import com.multirestaurantplatform.order.service.client.MenuItemDetailsDto;
+import com.multirestaurantplatform.order.service.client.MenuServiceClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+@Service
+public class InMemoryCartServiceImpl implements CartService {
+
+    private static final Logger logger = LoggerFactory.getLogger(InMemoryCartServiceImpl.class);
+    private final Map<String, Cart> userCarts = new ConcurrentHashMap<>();
+    private final MenuServiceClient menuServiceClient; // To fetch item details
+
+    @Autowired
+    public InMemoryCartServiceImpl(MenuServiceClient menuServiceClient) {
+        this.menuServiceClient = menuServiceClient;
+        // Initialize with a Stub implementation for now if a real one isn't available
+        // This will be replaced by a proper client (e.g. Feign client or direct service call)
+        logger.info("InMemoryCartServiceImpl initialized. MenuServiceClient type: {}",
+            menuServiceClient.getClass().getSimpleName());
+    }
+
+    @Override
+    public CartResponse addItemToCart(String userId, AddItemToCartRequest addItemRequest) {
+        MenuItemDetailsDto itemDetails = menuServiceClient
+                .getMenuItemDetails(addItemRequest.getMenuItemId(), addItemRequest.getRestaurantId())
+                .orElseThrow(() -> new CartUpdateException("Menu item " + addItemRequest.getMenuItemId() + " not found or unavailable."));
+
+        if (!itemDetails.isAvailable()) {
+            throw new CartUpdateException("Menu item " + itemDetails.getName() + " is currently unavailable.");
+        }
+        
+        if (!itemDetails.getRestaurantId().equals(addItemRequest.getRestaurantId())) {
+            // This check might be redundant if getMenuItemDetails already uses restaurantId for lookup scope
+            throw new CartUpdateException("Menu item " + itemDetails.getName() + " does not belong to restaurant " + addItemRequest.getRestaurantId());
+        }
+
+        Cart cart = userCarts.computeIfAbsent(userId, k -> new Cart(userId, itemDetails.getRestaurantId(), itemDetails.getRestaurantName()));
+
+        // Check if item is from a different restaurant than the current cart
+        if (!cart.getRestaurantId().equals(itemDetails.getRestaurantId())) {
+            // Policy: Clear cart if adding from a new restaurant, or throw error.
+            // For now, let's clear and start a new cart.
+            logger.info("User {} adding item from new restaurant {}. Clearing old cart from restaurant {}.",
+                    userId, itemDetails.getRestaurantName(), cart.getRestaurantName());
+            cart = new Cart(userId, itemDetails.getRestaurantId(), itemDetails.getRestaurantName());
+            userCarts.put(userId, cart);
+        }
+
+
+        Optional<CartItem> existingItemOpt = cart.getItems().stream()
+                .filter(ci -> ci.getMenuItemId().equals(addItemRequest.getMenuItemId()))
+                .findFirst();
+
+        if (existingItemOpt.isPresent()) {
+            CartItem existingItem = existingItemOpt.get();
+            existingItem.setQuantity(existingItem.getQuantity() + addItemRequest.getQuantity());
+        } else {
+            CartItem newItem = new CartItem(
+                    itemDetails.getId(),
+                    itemDetails.getName(),
+                    addItemRequest.getQuantity(),
+                    itemDetails.getPrice()
+            );
+            cart.getItems().add(newItem);
+        }
+        cart.recalculateCartTotalPrice();
+        return mapCartToResponse(cart);
+    }
+
+    @Override
+    public CartResponse getCart(String userId) {
+        Cart cart = userCarts.get(userId);
+        if (cart == null) {
+            // Return an empty cart response instead of throwing an error for GET
+            return new CartResponse(userId, null, null, List.of(), java.math.BigDecimal.ZERO);
+        }
+        return mapCartToResponse(cart);
+    }
+
+    @Override
+    public CartResponse updateCartItem(String userId, Long menuItemId, UpdateCartItemRequest updateRequest) {
+        Cart cart = userCarts.get(userId);
+        if (cart == null) {
+            throw new CartNotFoundException("Cart not found for user " + userId);
+        }
+
+        CartItem itemToUpdate = cart.getItems().stream()
+                .filter(ci -> ci.getMenuItemId().equals(menuItemId))
+                .findFirst()
+                .orElseThrow(() -> new MenuItemNotFoundInCartException("Menu item " + menuItemId + " not found in cart."));
+
+        itemToUpdate.setQuantity(updateRequest.getQuantity());
+        cart.recalculateCartTotalPrice();
+        return mapCartToResponse(cart);
+    }
+
+    @Override
+    public CartResponse removeCartItem(String userId, Long menuItemId) {
+        Cart cart = userCarts.get(userId);
+        if (cart == null) {
+            throw new CartNotFoundException("Cart not found for user " + userId);
+        }
+
+        boolean removed = cart.getItems().removeIf(ci -> ci.getMenuItemId().equals(menuItemId));
+        if (!removed) {
+            throw new MenuItemNotFoundInCartException("Menu item " + menuItemId + " not found in cart for removal.");
+        }
+        
+        // If cart becomes empty, we could remove the cart itself from userCarts or keep it as an empty cart.
+        // Keeping it is simpler for now. If items empty, restaurantId might become irrelevant.
+        if (cart.getItems().isEmpty()) {
+            cart.setRestaurantId(null);
+            cart.setRestaurantName(null);
+        }
+
+        cart.recalculateCartTotalPrice();
+        return mapCartToResponse(cart);
+    }
+
+    @Override
+    public void clearCart(String userId) {
+        Cart cart = userCarts.remove(userId);
+         if (cart == null) {
+            // Optionally, you could throw CartNotFoundException or just log
+            logger.info("Attempted to clear a non-existent cart for user {}", userId);
+            // To ensure idempotency or avoid error for clearing non-existent cart:
+            // throw new CartNotFoundException("Cart not found for user " + userId + " to clear.");
+        } else {
+            logger.info("Cart cleared for user {}", userId);
+        }
+    }
+
+    private CartResponse mapCartToResponse(Cart cart) {
+        List<CartItemResponse> itemResponses = cart.getItems().stream()
+                .map(ci -> new CartItemResponse(
+                        ci.getMenuItemId(),
+                        ci.getMenuItemName(),
+                        ci.getQuantity(),
+                        ci.getUnitPrice(),
+                        ci.getTotalPrice()))
+                .collect(Collectors.toList());
+        return new CartResponse(cart.getUserId(), cart.getRestaurantId(), cart.getRestaurantName(), itemResponses, cart.getCartTotalPrice());
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/service/client/MenuItemDetailsDto.java ===
+package com.multirestaurantplatform.order.service.client;
+
+import java.math.BigDecimal;
+
+public class MenuItemDetailsDto {
+    private Long id;
+    private String name;
+    private BigDecimal price;
+    private Long restaurantId;
+    private String restaurantName; // Optional, but useful
+    private boolean available;
+
+    // Constructors, Getters, Setters
+    public MenuItemDetailsDto() {}
+
+    public MenuItemDetailsDto(Long id, String name, BigDecimal price, Long restaurantId, String restaurantName, boolean available) {
+        this.id = id;
+        this.name = name;
+        this.price = price;
+        this.restaurantId = restaurantId;
+        this.restaurantName = restaurantName;
+        this.available = available;
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+    public Long getRestaurantId() { return restaurantId; }
+    public void setRestaurantId(Long restaurantId) { this.restaurantId = restaurantId; }
+    public String getRestaurantName() { return restaurantName; }
+    public void setRestaurantName(String restaurantName) { this.restaurantName = restaurantName; }
+    public boolean isAvailable() { return available; }
+    public void setAvailable(boolean available) { this.available = available; }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/service/client/MenuServiceClient.java ===
+package com.multirestaurantplatform.order.service.client;
+
+import java.util.Optional;
+
+public interface MenuServiceClient {
+    /**
+     * Fetches details of a menu item.
+     * @param menuItemId The ID of the menu item.
+     * @param restaurantId The ID of the restaurant (for context, though menuItemId might be globally unique or unique within restaurant).
+     * @return Optional containing MenuItemDetailsDto if found and available, empty otherwise.
+     */
+    Optional<MenuItemDetailsDto> getMenuItemDetails(Long menuItemId, Long restaurantId);
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/service/client/StubMenuServiceClientImpl.java ===
+package com.multirestaurantplatform.order.service.client;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component; // Or @Service
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+// This is a STUB implementation for development and testing of CartService.
+// In a real application, this would be a Feign client or similar,
+// or a direct call to another module's service.
+@Component // Make it a Spring bean so CartService can autowire it
+public class StubMenuServiceClientImpl implements MenuServiceClient {
+
+    private static final Logger logger = LoggerFactory.getLogger(StubMenuServiceClientImpl.class);
+    private final Map<Long, MenuItemDetailsDto> mockMenuDatabase = new HashMap<>();
+
+    public StubMenuServiceClientImpl() {
+        // Populate with some mock data
+        // Restaurant 1
+        mockMenuDatabase.put(101L, new MenuItemDetailsDto(101L, "Classic Burger", new BigDecimal("12.99"), 1L, "Burger Queen", true));
+        mockMenuDatabase.put(102L, new MenuItemDetailsDto(102L, "Cheese Fries", new BigDecimal("5.50"), 1L, "Burger Queen", true));
+        mockMenuDatabase.put(103L, new MenuItemDetailsDto(103L, "Milkshake", new BigDecimal("4.00"), 1L, "Burger Queen", false)); // Unavailable
+
+        // Restaurant 2
+        mockMenuDatabase.put(201L, new MenuItemDetailsDto(201L, "Margherita Pizza", new BigDecimal("15.00"), 2L, "Pizza Palace", true));
+        mockMenuDatabase.put(202L, new MenuItemDetailsDto(202L, "Pepperoni Pizza", new BigDecimal("17.50"), 2L, "Pizza Palace", true));
+        logger.info("StubMenuServiceClientImpl initialized with mock data.");
+    }
+
+    @Override
+    public Optional<MenuItemDetailsDto> getMenuItemDetails(Long menuItemId, Long restaurantId) {
+        logger.debug("StubMenuServiceClient: Fetching menuItemId: {}, restaurantId: {}", menuItemId, restaurantId);
+        MenuItemDetailsDto item = mockMenuDatabase.get(menuItemId);
+        if (item != null && item.getRestaurantId().equals(restaurantId)) {
+            return Optional.of(item);
+        }
+        // If item exists but for wrong restaurant, it's effectively not found for this call context
+        if (item != null && !item.getRestaurantId().equals(restaurantId)) {
+             logger.warn("StubMenuServiceClient: Item {} found but belongs to restaurant {}, expected {}",
+                menuItemId, item.getRestaurantId(), restaurantId);
+        }
+        return Optional.empty();
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/exception/CartNotFoundException.java ===
+package com.multirestaurantplatform.order.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(HttpStatus.NOT_FOUND)
+public class CartNotFoundException extends RuntimeException {
+    public CartNotFoundException(String message) {
+        super(message);
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/exception/CartUpdateException.java ===
+package com.multirestaurantplatform.order.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(HttpStatus.BAD_REQUEST)
+public class CartUpdateException extends RuntimeException {
+    public CartUpdateException(String message) {
+        super(message);
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/exception/MenuItemNotFoundInCartException.java ===
+package com.multirestaurantplatform.order.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(HttpStatus.NOT_FOUND)
+public class MenuItemNotFoundInCartException extends RuntimeException {
+    public MenuItemNotFoundInCartException(String message) {
+        super(message);
+    }
 }
 === backend/restaurant/build.gradle ===
 plugins {
@@ -2518,9 +3819,9 @@ dependencies {
     // Add other modules as they become relevant and needed by the api module
     implementation project(':backend:restaurant')
     implementation project(':backend:menu')
-    // implementation project(':backend:order')
-    // implementation project(':backend:payment')
-    // implementation project(':backend:print')
+    implementation project(':backend:order')
+    implementation project(':backend:payment')
+    implementation project(':backend:print')
 
     // --- Testing (Version managed by BOM in root project) ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -2596,17 +3897,18 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+// Key change: Added scanBasePackages to @SpringBootApplication
 @SpringBootApplication(scanBasePackages = "com.multirestaurantplatform")
 @EnableJpaRepositories(basePackages = {
         "com.multirestaurantplatform.security.repository",
         "com.multirestaurantplatform.restaurant.repository",
-        "com.multirestaurantplatform.menu.repository" // Add this line
+        "com.multirestaurantplatform.menu.repository"
 })
 @EntityScan(basePackages = {
         "com.multirestaurantplatform.security.model",
         "com.multirestaurantplatform.common.model",
         "com.multirestaurantplatform.restaurant.model",
-        "com.multirestaurantplatform.menu.model" // Add this line
+        "com.multirestaurantplatform.menu.model"
 })
 public class ApiApplication {
 

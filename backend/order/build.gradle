@@ -12,21 +12,28 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // For Spring Web (needed for @RestController, @RequestMapping, ResponseEntity, etc.)
-    // This is essential if your controller is in this module.
-    // If the controller is in a separate API gateway module that includes this 'order' module as a library,
-    // then the API gateway module would have this dependency.
-    // However, since CartController.java is defined within this order module, it needs spring-boot-starter-web.
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
     // For OpenAPI 3.0 (Swagger) annotations and UI generation
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0' // Check for the latest version
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0' // Check for the latest version for your Spring Boot version
+
+    // Dependency on the common module (if needed for main source, e.g. BaseEntity, custom exceptions)
+    // implementation project(':backend:common')
 
     // Lombok (Optional - uncomment if you want to use it)
     // compileOnly 'org.projectlombok:lombok'
     // annotationProcessor 'org.projectlombok:lombok'
 
-    // If you have a common module for shared DTOs or exceptions (not currently the case for these specific DTOs)
-    // implementation project(':backend:common')
+    // --- Test Dependencies ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test' // For @WithMockUser
+
+    // Add dependency on the security module for test compilation and runtime
+    testImplementation project(':backend:security')
+
+    // Add dependency on the api module for test compilation and runtime
+    // This allows CartControllerTest to import GlobalExceptionHandler from the api module.
+    testImplementation project(':backend:api')
 }
 
 java {

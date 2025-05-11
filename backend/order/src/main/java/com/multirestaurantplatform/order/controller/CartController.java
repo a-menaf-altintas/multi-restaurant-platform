@@ -4,7 +4,6 @@ import com.multirestaurantplatform.order.dto.AddItemToCartRequest;
 import com.multirestaurantplatform.order.dto.CartResponse;
 import com.multirestaurantplatform.order.dto.UpdateCartItemRequest;
 import com.multirestaurantplatform.order.service.CartService;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -35,7 +34,7 @@ public class CartController {
     @ApiResponse(responseCode = "400", description = "Invalid request (e.g., item not found, validation error)")
     @PostMapping("/items")
     public ResponseEntity<CartResponse> addItemToCart(
-            @Parameter(description = "ID of the user whose cart is being modified") @PathVariable String userId,
+            @Parameter(description = "ID of the user whose cart is being modified") @PathVariable("userId") String userId, // Explicitly named
             @Valid @RequestBody AddItemToCartRequest addItemRequest) {
         // In a real app with Spring Security, you might get userId from @AuthenticationPrincipal
         CartResponse cartResponse = cartService.addItemToCart(userId, addItemRequest);
@@ -46,7 +45,7 @@ public class CartController {
     @ApiResponse(responseCode = "200", description = "Successfully retrieved cart")
     @GetMapping
     public ResponseEntity<CartResponse> getCart(
-            @Parameter(description = "ID of the user whose cart is being retrieved") @PathVariable String userId) {
+            @Parameter(description = "ID of the user whose cart is being retrieved") @PathVariable("userId") String userId) { // Explicitly named
         CartResponse cartResponse = cartService.getCart(userId);
         return ResponseEntity.ok(cartResponse);
     }
@@ -57,8 +56,8 @@ public class CartController {
     @ApiResponse(responseCode = "404", description = "Cart or menu item not found in cart")
     @PutMapping("/items/{menuItemId}")
     public ResponseEntity<CartResponse> updateCartItem(
-            @Parameter(description = "ID of the user") @PathVariable String userId,
-            @Parameter(description = "ID of the menu item to update") @PathVariable Long menuItemId,
+            @Parameter(description = "ID of the user") @PathVariable("userId") String userId, // Explicitly named
+            @Parameter(description = "ID of the menu item to update") @PathVariable("menuItemId") Long menuItemId, // Explicitly named
             @Valid @RequestBody UpdateCartItemRequest updateRequest) {
         CartResponse cartResponse = cartService.updateCartItem(userId, menuItemId, updateRequest);
         return ResponseEntity.ok(cartResponse);
@@ -69,8 +68,8 @@ public class CartController {
     @ApiResponse(responseCode = "404", description = "Cart or menu item not found in cart")
     @DeleteMapping("/items/{menuItemId}")
     public ResponseEntity<CartResponse> removeCartItem(
-            @Parameter(description = "ID of the user") @PathVariable String userId,
-            @Parameter(description = "ID of the menu item to remove") @PathVariable Long menuItemId) {
+            @Parameter(description = "ID of the user") @PathVariable("userId") String userId, // Explicitly named
+            @Parameter(description = "ID of the menu item to remove") @PathVariable("menuItemId") Long menuItemId) { // Explicitly named
         CartResponse cartResponse = cartService.removeCartItem(userId, menuItemId);
         return ResponseEntity.ok(cartResponse);
     }
@@ -79,7 +78,7 @@ public class CartController {
     @ApiResponse(responseCode = "204", description = "Cart cleared successfully")
     @DeleteMapping
     public ResponseEntity<Void> clearCart(
-            @Parameter(description = "ID of the user whose cart is being cleared") @PathVariable String userId) {
+            @Parameter(description = "ID of the user whose cart is being cleared") @PathVariable("userId") String userId) { // Explicitly named
         cartService.clearCart(userId);
         return ResponseEntity.noContent().build();
     }
