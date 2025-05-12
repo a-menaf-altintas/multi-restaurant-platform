@@ -46,7 +46,7 @@ public class OrderServiceImpl implements OrderService {
             );
         }
 
-        order.setStatus(OrderStatus.CONFIRMED); // This will also set 'confirmedAt' via Order entity's setStatus
+        order.setStatus(OrderStatus.CONFIRMED);
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} confirmed successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
         return savedOrder;
@@ -67,7 +67,7 @@ public class OrderServiceImpl implements OrderService {
             );
         }
 
-        order.setStatus(OrderStatus.PREPARING); // This will also set 'preparingAt' via Order entity's setStatus
+        order.setStatus(OrderStatus.PREPARING);
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} marked as PREPARING successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
         return savedOrder;
@@ -88,9 +88,30 @@ public class OrderServiceImpl implements OrderService {
             );
         }
 
-        order.setStatus(OrderStatus.READY_FOR_PICKUP); // This will also set 'readyAt' via Order entity's setStatus
+        order.setStatus(OrderStatus.READY_FOR_PICKUP);
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} marked as READY_FOR_PICKUP successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
+        return savedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order markAsPickedUp(Long orderId, UserDetails restaurantAdminPrincipal) {
+        LOGGER.info("Attempting to mark order as DELIVERED (picked up) with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
+
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+
+        if (order.getStatus() != OrderStatus.READY_FOR_PICKUP) {
+            LOGGER.warn("Marking order as DELIVERED (picked up) failed: Order ID {} is not in READY_FOR_PICKUP state. Current state: {}", orderId, order.getStatus());
+            throw new IllegalOrderStateException(
+                    "Order cannot be marked as picked up. Expected status READY_FOR_PICKUP, but was " + order.getStatus() + "."
+            );
+        }
+
+        order.setStatus(OrderStatus.DELIVERED); // This will also set 'deliveredAt' via Order entity's setStatus
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as DELIVERED (picked up) successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
         return savedOrder;
     }
 

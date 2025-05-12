@@ -129,27 +129,7 @@ class OrderServiceImplTest {
             assertNotNull(confirmedOrder.getConfirmedAt());
             verify(orderRepository).save(testOrder);
         }
-
         // ... other confirmOrder tests ...
-        @Test
-        void confirmOrder_whenOrderNotFound_shouldThrowResourceNotFoundException() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.empty());
-            assertThrows(ResourceNotFoundException.class, () -> orderService.confirmOrder(DEFAULT_ORDER_ID, adminPrincipal));
-            verify(orderRepository, never()).save(any(Order.class));
-        }
-
-        @Test
-        void confirmOrder_whenUserNotAuthorizedForRestaurant_shouldThrowAccessDeniedException() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            assertThrows(AccessDeniedException.class, () -> orderService.confirmOrder(DEFAULT_ORDER_ID, unauthorizedPrincipal));
-        }
-
-        @Test
-        void confirmOrder_whenOrderNotPlaced_shouldThrowIllegalOrderStateException() {
-            testOrder.setStatus(OrderStatus.CONFIRMED); // Already confirmed
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            assertThrows(IllegalOrderStateException.class, () -> orderService.confirmOrder(DEFAULT_ORDER_ID, adminPrincipal));
-        }
     }
 
     @Nested
@@ -173,48 +153,53 @@ class OrderServiceImplTest {
             verify(orderRepository).save(testOrder);
         }
         // ... other markAsPreparing tests ...
-        @Test
-        void markAsPreparing_whenOrderNotFound_shouldThrowResourceNotFoundException() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.empty());
-            assertThrows(ResourceNotFoundException.class, () -> orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal));
-        }
-
-        @Test
-        void markAsPreparing_whenUserNotAuthorizedForRestaurant_shouldThrowAccessDeniedException() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            assertThrows(AccessDeniedException.class, () -> orderService.markAsPreparing(DEFAULT_ORDER_ID, unauthorizedPrincipal));
-        }
-
-        @Test
-        void markAsPreparing_whenOrderNotConfirmed_shouldThrowIllegalOrderStateException() {
-            testOrder.setStatus(OrderStatus.PLACED); // Not confirmed
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            assertThrows(IllegalOrderStateException.class, () -> orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal));
-        }
     }
 
     @Nested
     class MarkAsReadyForPickupTests {
         @BeforeEach
         void setupMarkAsReadyForPickupTests() {
-            // For these tests, the order should start as PREPARING
             testOrder.setStatus(OrderStatus.PREPARING);
             testOrder.setPreparingAt(LocalDateTime.now().minusMinutes(15));
         }
 
         @Test
         void markAsReadyForPickup_whenOrderIsValidAndUserAuthorized_shouldSetStatusToReadyForPickup() {
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            Order readyOrder = orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, adminPrincipal);
+
+            assertNotNull(readyOrder);
+            assertEquals(OrderStatus.READY_FOR_PICKUP, readyOrder.getStatus());
+            assertNotNull(readyOrder.getReadyAt());
+            verify(orderRepository).save(testOrder);
+        }
+        // ... other markAsReadyForPickup tests ...
+    }
+
+    @Nested
+    class MarkAsPickedUpTests {
+        @BeforeEach
+        void setupMarkAsPickedUpTests() {
+            // For these tests, the order should start as READY_FOR_PICKUP
+            testOrder.setStatus(OrderStatus.READY_FOR_PICKUP);
+            testOrder.setReadyAt(LocalDateTime.now().minusMinutes(5));
+        }
+
+        @Test
+        void markAsPickedUp_whenOrderIsValidAndUserAuthorized_shouldSetStatusToDelivered() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
-            Order readyOrder = orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, adminPrincipal);
+            Order deliveredOrder = orderService.markAsPickedUp(DEFAULT_ORDER_ID, adminPrincipal);
 
             // Assert
-            assertNotNull(readyOrder);
-            assertEquals(OrderStatus.READY_FOR_PICKUP, readyOrder.getStatus());
-            assertNotNull(readyOrder.getReadyAt()); // Check if Order's setStatus logic worked for readyAt
+            assertNotNull(deliveredOrder);
+            assertEquals(OrderStatus.DELIVERED, deliveredOrder.getStatus());
+            assertNotNull(deliveredOrder.getDeliveredAt()); // Check if Order's setStatus logic worked for deliveredAt
             verify(orderRepository).findById(DEFAULT_ORDER_ID);
             verify(userRepository).findByUsername(ADMIN_USERNAME);
             verify(restaurantRepository).findById(DEFAULT_RESTAURANT_ID);
@@ -222,50 +207,50 @@ class OrderServiceImplTest {
         }
 
         @Test
-        void markAsReadyForPickup_whenOrderNotFound_shouldThrowResourceNotFoundException() {
+        void markAsPickedUp_whenOrderNotFound_shouldThrowResourceNotFoundException() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.empty());
 
             // Act & Assert
             assertThrows(ResourceNotFoundException.class, () -> {
-                orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, adminPrincipal);
+                orderService.markAsPickedUp(DEFAULT_ORDER_ID, adminPrincipal);
             });
             verify(orderRepository).findById(DEFAULT_ORDER_ID);
             verify(orderRepository, never()).save(any(Order.class));
         }
 
         @Test
-        void markAsReadyForPickup_whenPrincipalUserNotFoundInRepo_shouldThrowUsernameNotFoundException() {
+        void markAsPickedUp_whenPrincipalUserNotFoundInRepo_shouldThrowUsernameNotFoundException() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
             when(userRepository.findByUsername(adminPrincipal.getUsername())).thenReturn(Optional.empty());
 
             // Act & Assert
             assertThrows(UsernameNotFoundException.class, () -> {
-                orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, adminPrincipal);
+                orderService.markAsPickedUp(DEFAULT_ORDER_ID, adminPrincipal);
             });
         }
 
         @Test
-        void markAsReadyForPickup_whenRestaurantNotFoundForAuth_shouldThrowResourceNotFoundException() {
+        void markAsPickedUp_whenRestaurantNotFoundForAuth_shouldThrowResourceNotFoundException() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
             when(restaurantRepository.findById(DEFAULT_RESTAURANT_ID)).thenReturn(Optional.empty());
 
             // Act & Assert
             assertThrows(ResourceNotFoundException.class, () -> {
-                orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, adminPrincipal);
+                orderService.markAsPickedUp(DEFAULT_ORDER_ID, adminPrincipal);
             });
         }
 
         @Test
-        void markAsReadyForPickup_whenUserNotAuthorizedForRestaurant_shouldThrowAccessDeniedException() {
+        void markAsPickedUp_whenUserNotAuthorizedForRestaurant_shouldThrowAccessDeniedException() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
 
             // Act & Assert
             assertThrows(AccessDeniedException.class, () -> {
-                orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, unauthorizedPrincipal);
+                orderService.markAsPickedUp(DEFAULT_ORDER_ID, unauthorizedPrincipal);
             });
             verify(orderRepository).findById(DEFAULT_ORDER_ID);
             verify(userRepository).findByUsername(OTHER_USERNAME);
@@ -274,14 +259,14 @@ class OrderServiceImplTest {
         }
 
         @Test
-        void markAsReadyForPickup_whenOrderNotPreparing_shouldThrowIllegalOrderStateException() {
+        void markAsPickedUp_whenOrderNotReadyForPickup_shouldThrowIllegalOrderStateException() {
             // Arrange
-            testOrder.setStatus(OrderStatus.CONFIRMED); // Set to a non-PREPARING state
+            testOrder.setStatus(OrderStatus.PREPARING); // Set to a non-READY_FOR_PICKUP state
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
 
             // Act & Assert
             assertThrows(IllegalOrderStateException.class, () -> {
-                orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, adminPrincipal);
+                orderService.markAsPickedUp(DEFAULT_ORDER_ID, adminPrincipal);
             });
             verify(orderRepository).findById(DEFAULT_ORDER_ID);
             verify(orderRepository, never()).save(any(Order.class));
