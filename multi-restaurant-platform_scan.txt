@@ -14,9 +14,9 @@ A **modular, container‑ready Spring Boot 3 (Java 21) backend** designed t
 | ------ | ---------------------- | ----------------------------------------------------------------------------------- |
 |  ✅     | **Authentication**     | JWT‑based login / registration, role model (ADMIN, RESTAURANT\_ADMIN, CUSTOMER)     |
 |  ✅     | **Restaurant & Menu**  | CRUD for restaurants, categories, items (with media & options)                      |
-|  🟡    | **Order Flow**         | Cart → order → status timeline (PLACED → CONFIRMED → PREPARING → READY → DELIVERED) |
-|  🟡    | **Payments**           | Stripe integration stub (test keys) with webhook listener                           |
+|  ✅    | **Order Flow**         | Cart → order → status timeline (PLACED → CONFIRMED → PREPARING → READY → DELIVERED) |
 |  🟡    | **WebSocket Printing** | Real‑time receipt / KDS ticket streaming to browser printers                        |
+|  🟡    | **Payments**           | Stripe integration stub (test keys) with webhook listener                           |
 |  🔲    | **Admin Dashboard**    | CMS pages, global config, analytics                                                 |
 
 Legend: ✅ finished · 🟡 in progress · 🔲 not started
@@ -41,6 +41,7 @@ Legend: ✅ finished · 🟡 in progress · 🔲 not started
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/controller
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/service
+[DIR] backend/order/src/test/java/com/multirestaurantplatform/order/service/impl
 [DIR] backend/order/src/main
 [DIR] backend/order/src/main/resources
 [DIR] backend/order/src/main/java
@@ -48,10 +49,12 @@ Legend: ✅ finished · 🟡 in progress · 🔲 not started
 [DIR] backend/order/src/main/java/com/multirestaurantplatform
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/dto
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/repository
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/controller
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/model
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/model/cart
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/service
+[DIR] backend/order/src/main/java/com/multirestaurantplatform/order/service/impl
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/service/client
 [DIR] backend/order/src/main/java/com/multirestaurantplatform/order/exception
 [DIR] backend/restaurant
@@ -317,7 +320,7 @@ A **modular, container‑ready Spring Boot 3 (Java 21) backend** designed t
 | ------ | ---------------------- | ----------------------------------------------------------------------------------- |
 |  ✅     | **Authentication**     | JWT‑based login / registration, role model (ADMIN, RESTAURANT\_ADMIN, CUSTOMER)     |
 |  ✅     | **Restaurant & Menu**  | CRUD for restaurants, categories, items (with media & options)                      |
-|  🟡    | **Order Flow**         | Cart → order → status timeline (PLACED → CONFIRMED → PREPARING → READY → DELIVERED) |
+|  ✅    | **Order Flow**         | Cart → order → status timeline (PLACED → CONFIRMED → PREPARING → READY → DELIVERED) |
 |  🟡    | **Payments**           | Stripe integration stub (test keys) with webhook listener                           |
 |  🟡    | **WebSocket Printing** | Real‑time receipt / KDS ticket streaming to browser printers                        |
 |  🔲    | **Admin Dashboard**    | CMS pages, global config, analytics                                                 |
@@ -553,41 +556,58 @@ description = 'Parent module for all backend services'
 // This file primarily serves as a marker for the 'backend' project
 // and can be used for shared configurations among all backend modules later.
 === backend/order/build.gradle ===
+// File: backend/order/build.gradle
 plugins {
     id 'java-library'
 }
 
-description = 'The order module - defines order entities, cart functionality, and potentially services/repositories'
+description = 'The order module - defines order entities, cart functionality, and order workflow services/repositories'
 
 dependencies {
     // For Jakarta Persistence API (JPA) entities and Spring Data JPA
+    // Version is managed by the Spring Boot BOM in the root project.
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    // For using validation annotations like @NotNull, @Min etc. in DTOs
+    // For using validation annotations like @NotNull, @Min etc. in DTOs and Entities
+    // Version is managed by the Spring Boot BOM in the root project.
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // For Spring Web (needed for @RestController, @RequestMapping, ResponseEntity, etc.)
+    // For Spring Web (needed for @RestController, @RequestMapping, ResponseEntity, etc. in OrderController)
+    // Also brings in core Spring framework classes.
+    // Version is managed by the Spring Boot BOM in the root project.
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    // Explicitly add Spring Boot Starter Security to ensure all security annotations and classes
+    // (like @PreAuthorize, UserDetails, @AuthenticationPrincipal, AccessDeniedException) are available directly to this module.
+    // Version is managed by the Spring Boot BOM in the root project.
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
     // For OpenAPI 3.0 (Swagger) annotations and UI generation
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0' // Check for the latest version for your Spring Boot version
+    // Version ('org.springdoc:springdoc-openapi-starter-webmvc-ui') is managed by the root build.gradle's dependencyManagement.
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
 
-    // Dependency on the common module (if needed for main source, e.g. BaseEntity, custom exceptions)
-    // implementation project(':backend:common')
+    // Dependency on the common module (for BaseEntity, custom exceptions like ResourceNotFoundException)
+    implementation project(':backend:common')
 
-    // Lombok (Optional - uncomment if you want to use it)
+    // Dependency on the security module (for User model, Role enum, UserRepository, and potentially custom UserDetails implementations)
+    // This module provides your application-specific security logic and models.
+    implementation project(':backend:security')
+
+    // Dependency on the restaurant module (for Restaurant model, RestaurantRepository, used for authorization checks in OrderService)
+    implementation project(':backend:restaurant')
+
+    // Lombok is managed by the root project's subprojects configuration (compileOnly and annotationProcessor).
+    // No need to declare version here.
     // compileOnly 'org.projectlombok:lombok'
     // annotationProcessor 'org.projectlombok:lombok'
 
     // --- Test Dependencies ---
+    // Versions are managed by the Spring Boot BOM in the root project.
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.security:spring-security-test' // For @WithMockUser
+    testImplementation 'org.springframework.security:spring-security-test' // For @WithMockUser and other security testing utilities
 
-    // Add dependency on the security module for test compilation and runtime
-    testImplementation project(':backend:security')
-
-    // Add dependency on the api module for test compilation and runtime
-    // This allows CartControllerTest to import GlobalExceptionHandler from the api module.
+    // Test dependency on the api module (e.g., if tests need GlobalExceptionHandler or ErrorResponse DTO from the api module)
+    // This was existing for CartControllerTest. Keep if still relevant for order tests.
     testImplementation project(':backend:api')
 }
 
@@ -747,6 +767,151 @@ public class CartResponse {
         this.cartTotalPrice = cartTotalPrice;
     }
 }
+=== backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderItemResponse.java ===
+package com.multirestaurantplatform.order.dto;
+
+import com.multirestaurantplatform.order.model.OrderItem; // Ensure correct import
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class OrderItemResponse {
+    private Long id;
+    private Long menuItemId;
+    private String menuItemName;
+    private Integer quantity;
+    private BigDecimal unitPrice;
+    private BigDecimal itemTotalPrice;
+    private String selectedOptions;
+
+    public static OrderItemResponse fromEntity(OrderItem orderItem) {
+        if (orderItem == null) {
+            return null;
+        }
+        return new OrderItemResponse(
+                orderItem.getId(),
+                orderItem.getMenuItemId(),
+                orderItem.getMenuItemName(),
+                orderItem.getQuantity(),
+                orderItem.getUnitPrice(),
+                orderItem.getItemTotalPrice(),
+                orderItem.getSelectedOptions()
+        );
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderResponse.java ===
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderResponse.java
+package com.multirestaurantplatform.order.dto;
+
+import com.multirestaurantplatform.order.model.Order;
+import com.multirestaurantplatform.order.model.OrderStatus;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Getter
+@Setter
+@NoArgsConstructor
+// Update AllArgsConstructor or add a new constructor if you prefer manual control
+public class OrderResponse {
+
+    private Long id;
+    private Long customerId;
+    private Long restaurantId;
+    private OrderStatus status;
+    private BigDecimal totalPrice;
+    private String deliveryAddressLine1;
+    private String deliveryCity;
+    private String deliveryPostalCode;
+    private String customerContactNumber;
+    private String specialInstructions;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private LocalDateTime placedAt;
+    private LocalDateTime confirmedAt;
+    private LocalDateTime preparingAt;
+    private LocalDateTime readyAt;
+    private LocalDateTime outForDeliveryAt; // New field
+    private LocalDateTime deliveredAt;
+    private LocalDateTime cancelledAt;
+    private List<OrderItemResponse> orderItems;
+
+    // Manual constructor to include the new field
+    public OrderResponse(Long id, Long customerId, Long restaurantId, OrderStatus status, BigDecimal totalPrice,
+                         String deliveryAddressLine1, String deliveryCity, String deliveryPostalCode,
+                         String customerContactNumber, String specialInstructions, LocalDateTime createdAt,
+                         LocalDateTime updatedAt, LocalDateTime placedAt, LocalDateTime confirmedAt,
+                         LocalDateTime preparingAt, LocalDateTime readyAt, LocalDateTime outForDeliveryAt,
+                         LocalDateTime deliveredAt, LocalDateTime cancelledAt, List<OrderItemResponse> orderItems) {
+        this.id = id;
+        this.customerId = customerId;
+        this.restaurantId = restaurantId;
+        this.status = status;
+        this.totalPrice = totalPrice;
+        this.deliveryAddressLine1 = deliveryAddressLine1;
+        this.deliveryCity = deliveryCity;
+        this.deliveryPostalCode = deliveryPostalCode;
+        this.customerContactNumber = customerContactNumber;
+        this.specialInstructions = specialInstructions;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.placedAt = placedAt;
+        this.confirmedAt = confirmedAt;
+        this.preparingAt = preparingAt;
+        this.readyAt = readyAt;
+        this.outForDeliveryAt = outForDeliveryAt;
+        this.deliveredAt = deliveredAt;
+        this.cancelledAt = cancelledAt;
+        this.orderItems = orderItems;
+    }
+
+
+    // Static factory method to convert Order entity to OrderResponse DTO
+    public static OrderResponse fromEntity(Order order) {
+        if (order == null) {
+            return null;
+        }
+        List<OrderItemResponse> itemResponses = order.getOrderItems() != null ?
+                order.getOrderItems().stream().map(OrderItemResponse::fromEntity).collect(Collectors.toList()) :
+                List.of();
+
+        return new OrderResponse(
+                order.getId(),
+                order.getCustomerId(),
+                order.getRestaurantId(),
+                order.getStatus(),
+                order.getTotalPrice(),
+                order.getDeliveryAddressLine1(),
+                order.getDeliveryCity(),
+                order.getDeliveryPostalCode(),
+                order.getCustomerContactNumber(),
+                order.getSpecialInstructions(),
+                order.getCreatedAt(),
+                order.getUpdatedAt(),
+                order.getPlacedAt(),
+                order.getConfirmedAt(),
+                order.getPreparingAt(),
+                order.getReadyAt(),
+                order.getOutForDeliveryAt(), // Include new field
+                order.getDeliveredAt(),
+                order.getCancelledAt(),
+                itemResponses
+        );
+    }
+}
 === backend/order/src/main/java/com/multirestaurantplatform/order/dto/UpdateCartItemRequest.java ===
 package com.multirestaurantplatform.order.dto;
 
@@ -773,6 +938,20 @@ public class UpdateCartItemRequest {
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/repository/OrderRepository.java ===
+package com.multirestaurantplatform.order.repository;
+
+import com.multirestaurantplatform.order.model.Order;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface OrderRepository extends JpaRepository<Order, Long> {
+    // You can add custom query methods here if needed in the future
+    // For example:
+    // List<Order> findByCustomerIdAndStatus(Long customerId, OrderStatus status);
+    // List<Order> findByRestaurantIdAndStatus(Long restaurantId, OrderStatus status);
 }
 === backend/order/src/main/java/com/multirestaurantplatform/order/controller/CartController.java ===
 package com.multirestaurantplatform.order.controller;
@@ -860,7 +1039,139 @@ public class CartController {
         return ResponseEntity.noContent().build();
     }
 }
+=== backend/order/src/main/java/com/multirestaurantplatform/order/controller/OrderController.java ===
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/controller/OrderController.java
+package com.multirestaurantplatform.order.controller;
+
+import com.multirestaurantplatform.order.dto.OrderResponse;
+import com.multirestaurantplatform.order.model.Order;
+import com.multirestaurantplatform.order.service.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1") // Adjusted base path for user-specific cart endpoint
+@RequiredArgsConstructor
+@Tag(name = "Order Management", description = "APIs for managing customer orders and their lifecycle.")
+@SecurityRequirement(name = "bearerAuth")
+public class OrderController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
+    private final OrderService orderService;
+
+    // Endpoint to place an order from a user's cart
+    @PostMapping("/users/{userId}/orders/place-from-cart")
+    // CUSTOMER can place for their own userId. ADMIN can place for any userId.
+    // userId here is expected to be the username for consistency with CartService.
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Place an order from user's cart",
+            description = "Creates a new order from the specified user's current shopping cart. " +
+                    "The authenticated user must be the owner of the cart or an ADMIN. " +
+                    "The cart will be cleared upon successful order placement.",
+            responses = {
+                    @ApiResponse(responseCode = "201", description = "Order placed successfully",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., cart empty, cart not associated with restaurant)"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to place order for this cart"),
+                    @ApiResponse(responseCode = "404", description = "User or Cart not found")
+            })
+    public ResponseEntity<OrderResponse> placeOrderFromCart(
+            @Parameter(description = "Username of the user whose cart is to be converted into an order.") @PathVariable String userId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails principal) {
+        // Note: If userId is a numeric ID, the @PreAuthorize and service logic would need adjustment.
+        // Assuming userId is username here.
+        LOGGER.info("API call to place order from cart for user: {} by principal: {}", userId, principal.getUsername());
+        Order placedOrder = orderService.placeOrderFromCart(userId, principal);
+        OrderResponse responseDto = OrderResponse.fromEntity(placedOrder);
+        LOGGER.info("Order ID: {} placed successfully from cart for user: {}", responseDto.getId(), userId);
+        return new ResponseEntity<>(responseDto, HttpStatus.CREATED);
+    }
+
+
+    // --- Existing Order Status Transition Endpoints ---
+    @PutMapping("/orders/{orderId}/confirm")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
+    @Operation(summary = "Confirm an order")
+    public ResponseEntity<OrderResponse> confirmOrder(
+            @Parameter(description = "ID of the order to be confirmed") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+        LOGGER.info("API call to confirm order ID: {} by user: {}", orderId, userDetails.getUsername());
+        Order confirmedOrder = orderService.confirmOrder(orderId, userDetails);
+        return ResponseEntity.ok(OrderResponse.fromEntity(confirmedOrder));
+    }
+
+    @PutMapping("/orders/{orderId}/prepare")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
+    @Operation(summary = "Mark order as preparing")
+    public ResponseEntity<OrderResponse> markAsPreparing(
+            @Parameter(description = "ID of the order to be marked as preparing") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+        LOGGER.info("API call to mark order ID: {} as PREPARING by user: {}", orderId, userDetails.getUsername());
+        Order preparingOrder = orderService.markAsPreparing(orderId, userDetails);
+        return ResponseEntity.ok(OrderResponse.fromEntity(preparingOrder));
+    }
+
+    @PutMapping("/orders/{orderId}/ready-for-pickup")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
+    @Operation(summary = "Mark order as ready for pickup")
+    public ResponseEntity<OrderResponse> markAsReadyForPickup(
+            @Parameter(description = "ID of the order to be marked as ready for pickup") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+        LOGGER.info("API call to mark order ID: {} as READY_FOR_PICKUP by user: {}", orderId, userDetails.getUsername());
+        Order readyOrder = orderService.markAsReadyForPickup(orderId, userDetails);
+        return ResponseEntity.ok(OrderResponse.fromEntity(readyOrder));
+    }
+
+    @PutMapping("/orders/{orderId}/picked-up")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
+    @Operation(summary = "Mark order as picked up (Delivered)")
+    public ResponseEntity<OrderResponse> markAsPickedUp(
+            @Parameter(description = "ID of the order to be marked as picked up") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+        LOGGER.info("API call to mark order ID: {} as DELIVERED (picked up) by user: {}", orderId, userDetails.getUsername());
+        Order pickedUpOrder = orderService.markAsPickedUp(orderId, userDetails);
+        return ResponseEntity.ok(OrderResponse.fromEntity(pickedUpOrder));
+    }
+
+    @PutMapping("/orders/{orderId}/out-for-delivery")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
+    @Operation(summary = "Mark order as out for delivery")
+    public ResponseEntity<OrderResponse> markAsOutForDelivery(
+            @Parameter(description = "ID of the order to be marked as out for delivery") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+        LOGGER.info("API call to mark order ID: {} as OUT_FOR_DELIVERY by user: {}", orderId, userDetails.getUsername());
+        Order outForDeliveryOrder = orderService.markAsOutForDelivery(orderId, userDetails);
+        return ResponseEntity.ok(OrderResponse.fromEntity(outForDeliveryOrder));
+    }
+
+    @PutMapping("/orders/{orderId}/delivery-completed")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
+    @Operation(summary = "Mark order delivery as completed (Delivered)")
+    public ResponseEntity<OrderResponse> completeDelivery(
+            @Parameter(description = "ID of the order whose delivery is completed") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+        LOGGER.info("API call to complete delivery for order ID: {} by user: {}", orderId, userDetails.getUsername());
+        Order deliveredOrder = orderService.completeDelivery(orderId, userDetails);
+        return ResponseEntity.ok(OrderResponse.fromEntity(deliveredOrder));
+    }
+}
 === backend/order/src/main/java/com/multirestaurantplatform/order/model/Order.java ===
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/model/Order.java
 package com.multirestaurantplatform.order.model;
 
 import jakarta.persistence.*;
@@ -928,7 +1239,8 @@ public class Order {
     private LocalDateTime placedAt;
     private LocalDateTime confirmedAt;
     private LocalDateTime preparingAt;
-    private LocalDateTime readyAt; // Ready for pickup or out for delivery
+    private LocalDateTime readyAt; // Ready for pickup or before out for delivery
+    private LocalDateTime outForDeliveryAt; // New field
     private LocalDateTime deliveredAt;
     private LocalDateTime cancelledAt;
 
@@ -936,9 +1248,7 @@ public class Order {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == OrderStatus.PLACED) {
-            placedAt = LocalDateTime.now();
-        }
+        // Note: placedAt is now set explicitly when status becomes PLACED in setStatus
     }
 
     @PreUpdate
@@ -983,19 +1293,25 @@ public class Order {
     public void setOrderItems(List<OrderItem> orderItems) {
         this.orderItems = orderItems;
         // Ensure bidirectional consistency
-        for (OrderItem item : orderItems) {
-            item.setOrder(this);
+        if (orderItems != null) {
+            for (OrderItem item : orderItems) {
+                item.setOrder(this);
+            }
         }
     }
 
     public void addOrderItem(OrderItem item) {
-        orderItems.add(item);
-        item.setOrder(this);
+        if (item != null) {
+            orderItems.add(item);
+            item.setOrder(this);
+        }
     }
 
     public void removeOrderItem(OrderItem item) {
-        orderItems.remove(item);
-        item.setOrder(null);
+        if (item != null) {
+            orderItems.remove(item);
+            item.setOrder(null);
+        }
     }
 
     public OrderStatus getStatus() {
@@ -1016,18 +1332,23 @@ public class Order {
             case PREPARING:
                 this.preparingAt = now;
                 break;
-            case READY_FOR_PICKUP: // or OUT_FOR_DELIVERY can share this
+            case READY_FOR_PICKUP:
+                this.readyAt = now; // Common 'ready' timestamp
+                break;
             case OUT_FOR_DELIVERY:
-                this.readyAt = now;
+                this.readyAt = (this.readyAt == null && this.preparingAt != null) ? now : this.readyAt; // If not already set as ready, mark as ready now
+                this.outForDeliveryAt = now; // Specific timestamp for going out for delivery
                 break;
             case DELIVERED:
                 this.deliveredAt = now;
                 break;
             case CANCELLED_BY_USER:
             case CANCELLED_BY_RESTAURANT:
-                this.cancelledAt = now;
+            case FAILED: // Added FAILED case based on your OrderStatus enum
+                this.cancelledAt = now; // Or a specific 'failedAt' if needed
                 break;
             default:
+                // Potentially log an unhandled status or do nothing
                 break;
         }
     }
@@ -1150,6 +1471,14 @@ public class Order {
 
     public void setReadyAt(LocalDateTime readyAt) {
         this.readyAt = readyAt;
+    }
+
+    public LocalDateTime getOutForDeliveryAt() {
+        return outForDeliveryAt;
+    }
+
+    public void setOutForDeliveryAt(LocalDateTime outForDeliveryAt) {
+        this.outForDeliveryAt = outForDeliveryAt;
     }
 
     public LocalDateTime getDeliveredAt() {
@@ -1720,6 +2049,293 @@ public class InMemoryCartServiceImpl implements CartService {
         return new CartResponse(cart.getUserId(), cart.getRestaurantId(), cart.getRestaurantName(), itemResponses, cart.getCartTotalPrice());
     }
 }
+=== backend/order/src/main/java/com/multirestaurantplatform/order/service/OrderService.java ===
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/service/OrderService.java
+package com.multirestaurantplatform.order.service;
+
+import com.multirestaurantplatform.order.model.Order;
+import org.springframework.security.core.userdetails.UserDetails;
+
+public interface OrderService {
+
+    /**
+     * Creates a new order from the user's current shopping cart.
+     * Sets the order status to PLACED and clears the cart.
+     *
+     * @param userId The ID of the user for whom the order is being placed.
+     * This is typically the customer's ID.
+     * @param principal The UserDetails of the authenticated user performing the action.
+     * Used for authorization (e.g., customer placing their own order, or admin placing for a user).
+     * @return The newly created Order entity.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the user or their cart is not found, or if cart items refer to non-existent entities.
+     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the cart is empty or in an invalid state for order placement.
+     * @throws org.springframework.security.access.AccessDeniedException if the principal is not authorized to place an order for the given userId.
+     * @throws com.multirestaurantplatform.order.exception.CartUpdateException if cart items are invalid (e.g. from MenuServiceClient).
+     */
+    Order placeOrderFromCart(String userId, UserDetails principal /*, PlaceOrderRequestDto placeOrderRequestDto if needed for delivery address etc. */);
+
+    Order confirmOrder(Long orderId, UserDetails restaurantAdminPrincipal);
+    Order markAsPreparing(Long orderId, UserDetails restaurantAdminPrincipal);
+    Order markAsReadyForPickup(Long orderId, UserDetails restaurantAdminPrincipal);
+    Order markAsPickedUp(Long orderId, UserDetails restaurantAdminPrincipal);
+    Order markAsOutForDelivery(Long orderId, UserDetails principal);
+    Order completeDelivery(Long orderId, UserDetails principal);
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/OrderServiceImpl.java ===
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/OrderServiceImpl.java
+package com.multirestaurantplatform.order.service.impl;
+
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
+import com.multirestaurantplatform.order.dto.CartItemResponse;
+import com.multirestaurantplatform.order.dto.CartResponse;
+import com.multirestaurantplatform.order.exception.IllegalOrderStateException;
+import com.multirestaurantplatform.order.model.Order;
+import com.multirestaurantplatform.order.model.OrderItem;
+import com.multirestaurantplatform.order.model.OrderStatus;
+import com.multirestaurantplatform.order.repository.OrderRepository;
+import com.multirestaurantplatform.order.service.CartService; // Import CartService
+import com.multirestaurantplatform.order.service.OrderService;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
+import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
+import com.multirestaurantplatform.security.model.Role; // Import Role
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderServiceImpl.class);
+
+    private final OrderRepository orderRepository;
+    private final RestaurantRepository restaurantRepository;
+    private final UserRepository userRepository;
+    private final CartService cartService; // Inject CartService
+
+    @Override
+    @Transactional
+    public Order placeOrderFromCart(String userIdFromPath, UserDetails principal) {
+        LOGGER.info("Attempting to place order from cart for user ID path: {} by principal: {}", userIdFromPath, principal.getUsername());
+
+        // 1. Authorize the action
+        User customer = userRepository.findByUsername(userIdFromPath) // Assuming userIdFromPath is the username
+                .orElseThrow(() -> new ResourceNotFoundException("User with username " + userIdFromPath + " not found."));
+
+        boolean isAdmin = principal.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(auth -> auth.equals("ROLE_" + Role.ADMIN.name()));
+
+        if (!isAdmin && !principal.getUsername().equals(customer.getUsername())) {
+            LOGGER.warn("Authorization failed: Principal {} is not authorized to place order for user {}", principal.getUsername(), customer.getUsername());
+            throw new AccessDeniedException("You are not authorized to place an order for this user.");
+        }
+        LOGGER.info("User {} authorized to place order for user ID path: {}", principal.getUsername(), userIdFromPath);
+
+        // 2. Retrieve the cart
+        // The userId for cartService should be the actual username/identifier used by CartService
+        CartResponse cartResponse = cartService.getCart(customer.getUsername()); // Use customer's username
+
+        // 3. Validate the cart
+        if (cartResponse == null || CollectionUtils.isEmpty(cartResponse.getItems())) {
+            LOGGER.warn("Order placement failed: Cart for user {} is empty or not found.", customer.getUsername());
+            throw new IllegalOrderStateException("Cannot place order: Cart is empty.");
+        }
+        if (cartResponse.getRestaurantId() == null) {
+            LOGGER.warn("Order placement failed: Cart for user {} does not have a restaurant associated.", customer.getUsername());
+            throw new IllegalOrderStateException("Cannot place order: Cart is not associated with a restaurant.");
+        }
+
+        // 4. Create new Order entity
+        Order newOrder = new Order();
+        newOrder.setCustomerId(customer.getId());
+        newOrder.setRestaurantId(cartResponse.getRestaurantId());
+        newOrder.setTotalPrice(cartResponse.getCartTotalPrice() != null ? cartResponse.getCartTotalPrice() : BigDecimal.ZERO);
+        newOrder.setStatus(OrderStatus.PLACED);
+        // newOrder.setPlacedAt(LocalDateTime.now()); // This is handled by setStatus
+        // Delivery details can be set here if provided, or updated later. For now, they remain null.
+        // newOrder.setDeliveryAddressLine1(...);
+
+        // 5. Create OrderItem entities from cart items
+        List<OrderItem> orderItems = new ArrayList<>();
+        for (CartItemResponse cartItemDto : cartResponse.getItems()) {
+            OrderItem orderItem = new OrderItem();
+            orderItem.setMenuItemId(cartItemDto.getMenuItemId());
+            orderItem.setMenuItemName(cartItemDto.getMenuItemName());
+            orderItem.setQuantity(cartItemDto.getQuantity());
+            orderItem.setUnitPrice(cartItemDto.getUnitPrice());
+            orderItem.setItemTotalPrice(cartItemDto.getTotalPrice());
+            // orderItem.setSelectedOptions(...); // If you have options
+            newOrder.addOrderItem(orderItem); // This also sets orderItem.setOrder(newOrder)
+        }
+        // newOrder.setOrderItems(orderItems); // addOrderItem handles this
+
+        // 6. Save the order (OrderItems will be cascaded)
+        Order savedOrder = orderRepository.save(newOrder);
+        LOGGER.info("Order ID: {} placed successfully for user: {} by principal: {}", savedOrder.getId(), customer.getUsername(), principal.getUsername());
+
+        // 7. Clear the cart
+        try {
+            cartService.clearCart(customer.getUsername());
+            LOGGER.info("Cart cleared for user: {} after order placement.", customer.getUsername());
+        } catch (Exception e) {
+            // Log the error but don't let it fail the order placement transaction.
+            // Cart clearing is a secondary concern here.
+            LOGGER.error("Failed to clear cart for user {} after order placement. Order ID: {}. Error: {}",
+                    customer.getUsername(), savedOrder.getId(), e.getMessage());
+        }
+
+        return savedOrder;
+    }
+
+
+    // ... other existing service methods (confirmOrder, markAsPreparing, etc.)
+    @Override
+    @Transactional
+    public Order confirmOrder(Long orderId, UserDetails restaurantAdminPrincipal) {
+        LOGGER.info("Attempting to confirm order with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+        validateOrderStatus(order, OrderStatus.PLACED, "confirm");
+        order.setStatus(OrderStatus.CONFIRMED);
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} confirmed successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
+        return savedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order markAsPreparing(Long orderId, UserDetails restaurantAdminPrincipal) {
+        LOGGER.info("Attempting to mark order as PREPARING with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+        validateOrderStatus(order, OrderStatus.CONFIRMED, "mark as preparing");
+        order.setStatus(OrderStatus.PREPARING);
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as PREPARING successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
+        return savedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order markAsReadyForPickup(Long orderId, UserDetails restaurantAdminPrincipal) {
+        LOGGER.info("Attempting to mark order as READY_FOR_PICKUP with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+        validateOrderStatus(order, OrderStatus.PREPARING, "mark as ready for pickup");
+        order.setStatus(OrderStatus.READY_FOR_PICKUP);
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as READY_FOR_PICKUP successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
+        return savedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order markAsPickedUp(Long orderId, UserDetails restaurantAdminPrincipal) {
+        LOGGER.info("Attempting to mark order as DELIVERED (picked up) with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+        validateOrderStatus(order, OrderStatus.READY_FOR_PICKUP, "mark as picked up");
+        order.setStatus(OrderStatus.DELIVERED);
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as DELIVERED (picked up) successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
+        return savedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order markAsOutForDelivery(Long orderId, UserDetails principal) {
+        LOGGER.info("Attempting to mark order as OUT_FOR_DELIVERY with ID: {} by user: {}", orderId, principal.getUsername());
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, principal);
+        if (order.getStatus() != OrderStatus.READY_FOR_PICKUP && order.getStatus() != OrderStatus.PREPARING) {
+            LOGGER.warn("Marking order as OUT_FOR_DELIVERY failed: Order ID {} is not in READY_FOR_PICKUP or PREPARING state. Current state: {}", orderId, order.getStatus());
+            throw new IllegalOrderStateException(
+                    "Order cannot be marked as out for delivery. Expected status READY_FOR_PICKUP or PREPARING, but was " + order.getStatus() + "."
+            );
+        }
+        order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as OUT_FOR_DELIVERY successfully by user: {}", savedOrder.getId(), principal.getUsername());
+        return savedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order completeDelivery(Long orderId, UserDetails principal) {
+        LOGGER.info("Attempting to complete delivery for order ID: {} by user: {}", orderId, principal.getUsername());
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, principal);
+        validateOrderStatus(order, OrderStatus.OUT_FOR_DELIVERY, "complete delivery");
+        order.setStatus(OrderStatus.DELIVERED);
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as DELIVERED (delivery completed) successfully by user: {}", savedOrder.getId(), principal.getUsername());
+        return savedOrder;
+    }
+
+    private Order findOrderByIdOrThrow(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("Order operation failed: Order not found with ID: {}", orderId);
+                    return new ResourceNotFoundException("Order not found with id: " + orderId);
+                });
+    }
+
+    private void authorizeRestaurantAdminForOrder(Order order, UserDetails principal) {
+        Long orderRestaurantId = order.getRestaurantId();
+        if (orderRestaurantId == null) {
+            LOGGER.error("Authorization failed: Order ID {} is not associated with any restaurant.", order.getId());
+            throw new IllegalStateException("Order " + order.getId() + " has no associated restaurant ID.");
+        }
+        String principalUsername = principal.getUsername();
+        User adminUser = userRepository.findByUsername(principalUsername)
+                .orElseThrow(() -> {
+                    LOGGER.warn("Authorization failed: User {} (from principal) not found in repository.", principalUsername);
+                    return new UsernameNotFoundException("Authenticated user " + principalUsername + " not found in database.");
+                });
+        Restaurant restaurant = restaurantRepository.findById(orderRestaurantId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("Restaurant ID {} (for order ID {}) not found during authorization.", orderRestaurantId, order.getId());
+                    return new ResourceNotFoundException("Restaurant not found with ID: " + orderRestaurantId + " for order " + order.getId());
+                });
+        boolean isAuthorized = restaurant.getRestaurantAdmins().stream()
+                .anyMatch(admin -> admin.getId().equals(adminUser.getId()));
+        if (!isAuthorized) {
+            LOGGER.warn("Authorization failed: User {} (ID: {}) is not an admin for restaurant ID {} (Order ID: {})",
+                    principalUsername, adminUser.getId(), orderRestaurantId, order.getId());
+            throw new AccessDeniedException("User " + principalUsername +
+                    " is not authorized to manage orders for restaurant ID " + orderRestaurantId);
+        }
+        LOGGER.debug("User {} is authorized for restaurant ID {} of order ID {}",
+                principalUsername, orderRestaurantId, order.getId());
+    }
+
+    private void validateOrderStatus(Order order, OrderStatus expectedStatus, String actionDescription) {
+        if (order.getStatus() != expectedStatus) {
+            String errorMessage = String.format(
+                    "Order cannot be %s. Expected status %s, but was %s.",
+                    actionDescription, expectedStatus, order.getStatus()
+            );
+            LOGGER.warn("Order state validation failed for order ID {}: {}", order.getId(), errorMessage);
+            throw new IllegalOrderStateException(errorMessage);
+        }
+    }
+}
 === backend/order/src/main/java/com/multirestaurantplatform/order/service/client/MenuItemDetailsDto.java ===
 package com.multirestaurantplatform.order.service.client;
 
@@ -1842,6 +2458,18 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 public class CartUpdateException extends RuntimeException {
     public CartUpdateException(String message) {
         super(message);
+    }
+}
+=== backend/order/src/main/java/com/multirestaurantplatform/order/exception/IllegalOrderStateException.java ===
+package com.multirestaurantplatform.order.exception;
+
+public class IllegalOrderStateException extends RuntimeException {
+    public IllegalOrderStateException(String message) {
+        super(message);
+    }
+
+    public IllegalOrderStateException(String message, Throwable cause) {
+        super(message, cause);
     }
 }
 === backend/order/src/main/java/com/multirestaurantplatform/order/exception/MenuItemNotFoundInCartException.java ===
@@ -4112,7 +4740,76 @@ CREATE TABLE menus (
 CREATE INDEX idx_menus_restaurant_id ON menus (restaurant_id);
 CREATE INDEX idx_menus_name ON menus (name);
 CREATE INDEX idx_menus_is_active ON menus (is_active);
+=== backend/api/src/main/resources/db/migration/V4__Create_Order_Tables.sql ===
+-- File: backend/api/src/main/resources/db/migration/V4__Create_Order_Tables.sql
+
+-- Create the 'orders' table
+CREATE TABLE orders (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    customer_id BIGINT NOT NULL, -- Assuming this links to a user ID from the 'users' table
+    restaurant_id BIGINT NOT NULL, -- Assuming this links to a restaurant ID from the 'restaurants' table
+    status VARCHAR(50) NOT NULL, -- To store OrderStatus enum values like PLACED, CONFIRMED, etc.
+    total_price DECIMAL(10, 2) NOT NULL,
+
+    -- Delivery Address Details (as per your Order.java entity)
+    delivery_address_line1 VARCHAR(255),
+    delivery_address_line2 VARCHAR(255),
+    delivery_city VARCHAR(100),
+    delivery_state VARCHAR(100),
+    delivery_postal_code VARCHAR(20),
+    delivery_country VARCHAR(100),
+    customer_contact_number VARCHAR(20),
+    special_instructions VARCHAR(500),
+
+    -- Timestamps (as per your Order.java entity - using TIMESTAMP for LocalDateTime)
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    placed_at TIMESTAMP,
+    confirmed_at TIMESTAMP,
+    preparing_at TIMESTAMP,
+    ready_at TIMESTAMP,
+    delivered_at TIMESTAMP,
+    cancelled_at TIMESTAMP,
+
+    -- Foreign key constraints (optional but good practice)
+    -- Add if you want DB-level enforcement, assuming customer_id refers to users.id
+    -- CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES users (id),
+    CONSTRAINT fk_orders_restaurant FOREIGN KEY (restaurant_id) REFERENCES restaurants (id) ON DELETE CASCADE
+);
+
+-- Create the 'order_items' table
+CREATE TABLE order_items (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    menu_item_id BIGINT NOT NULL, -- ID of the item from the menu module (not a direct FK here if menu items are managed separately)
+    menu_item_name VARCHAR(255) NOT NULL, -- Denormalized for convenience
+    quantity INTEGER NOT NULL,
+    unit_price DECIMAL(10, 2) NOT NULL,
+    item_total_price DECIMAL(10, 2) NOT NULL,
+    selected_options VARCHAR(1000), -- For storing selected customizations as JSON or text
+
+    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+);
+
+-- Optional: Add indexes for performance
+CREATE INDEX idx_orders_customer_id ON orders (customer_id);
+CREATE INDEX idx_orders_restaurant_id ON orders (restaurant_id);
+CREATE INDEX idx_orders_status ON orders (status);
+CREATE INDEX idx_order_items_order_id ON order_items (order_id);
+CREATE INDEX idx_order_items_menu_item_id ON order_items (menu_item_id);
+=== backend/api/src/main/resources/db/migration/V5__Add_OutForDeliveryAt_To_Orders.sql ===
+-- File: backend/api/src/main/resources/db/migration/V5__Add_OutForDeliveryAt_To_Orders.sql
+
+-- Add the out_for_delivery_at column to the orders table
+-- This column will store the timestamp when an order is marked as out for delivery.
+ALTER TABLE orders
+ADD COLUMN out_for_delivery_at TIMESTAMP;
+
+-- Optional: Add an index if you anticipate querying by this timestamp frequently,
+-- though it's less common for status timestamps compared to foreign keys or main status.
+-- CREATE INDEX idx_orders_out_for_delivery_at ON orders (out_for_delivery_at);
 === backend/api/src/main/java/com/multirestaurantplatform/api/ApiApplication.java ===
+// File: backend/api/src/main/java/com/multirestaurantplatform/api/ApiApplication.java
 package com.multirestaurantplatform.api;
 
 import io.github.cdimascio.dotenv.Dotenv;
@@ -4121,33 +4818,46 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-// Key change: Added scanBasePackages to @SpringBootApplication
+// scanBasePackages in @SpringBootApplication should cover all your modules' services, components, etc.
+// The value "com.multirestaurantplatform" is broad enough to cover all your sub-modules.
 @SpringBootApplication(scanBasePackages = "com.multirestaurantplatform")
 @EnableJpaRepositories(basePackages = {
         "com.multirestaurantplatform.security.repository",
         "com.multirestaurantplatform.restaurant.repository",
-        "com.multirestaurantplatform.menu.repository"
+        "com.multirestaurantplatform.menu.repository",
+        "com.multirestaurantplatform.order.repository" // Added OrderRepository package
 })
 @EntityScan(basePackages = {
         "com.multirestaurantplatform.security.model",
-        "com.multirestaurantplatform.common.model",
+        "com.multirestaurantplatform.common.model",    // BaseEntity is here
         "com.multirestaurantplatform.restaurant.model",
-        "com.multirestaurantplatform.menu.model"
+        "com.multirestaurantplatform.menu.model",
+        "com.multirestaurantplatform.order.model"      // Added Order and OrderItem entity package
 })
 public class ApiApplication {
 
     public static void main(String[] args) {
+        // Load environment variables from .env file, primarily for local development
         Dotenv dotenv = Dotenv.configure()
-                .directory("../../") // Path from backend/api to project root
+                .directory("../../") // Path from backend/api to project root where .env might be
                 .filename(".env")    // Explicitly specify the filename
                 .ignoreIfMissing()   // Don't throw an error if .env is not found
                 .ignoreIfMalformed() // Don't throw an error if .env is malformed
                 .load();
 
+        // Example: Set JWT_SECRET_KEY as a system property if found in .env
+        // This allows @Value("${JWT_SECRET_KEY}") to pick it up.
         String loadedSecret = dotenv.get("JWT_SECRET_KEY");
         if (loadedSecret != null && !loadedSecret.trim().isEmpty()) {
             System.setProperty("JWT_SECRET_KEY", loadedSecret);
+            // For debugging: System.out.println("Loaded JWT_SECRET_KEY from .env and set as system property.");
+        } else {
+            // For debugging: System.out.println("JWT_SECRET_KEY not found in .env or is empty.");
         }
+
+        // Ensure other .env variables are similarly propagated if needed as system properties
+        // or accessed directly via dotenv instance in specific configurations.
+
         SpringApplication.run(ApiApplication.class, args);
     }
 }
@@ -4734,6 +5444,7 @@ import com.multirestaurantplatform.common.exception.ConflictException; // Added
 import com.multirestaurantplatform.common.exception.ResourceNotFoundException; // Added
 import com.multirestaurantplatform.api.dto.error.ErrorResponse; // Added
 
+import com.multirestaurantplatform.order.exception.IllegalOrderStateException;
 import jakarta.servlet.http.HttpServletRequest; // Added if not present, or use WebRequest
 import org.slf4j.Logger; // Added
 import org.slf4j.LoggerFactory; // Added
@@ -4855,6 +5566,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "An unexpected internal server error occurred.", // Generic message to client
                 request.getRequestURI());
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(IllegalOrderStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalOrderStateException(
+            IllegalOrderStateException ex, HttpServletRequest request) {
+        customLogger.warn("IllegalOrderStateException: {} at path {}", ex.getMessage(), request.getRequestURI());
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(), // 409 Conflict is appropriate for invalid state transition
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI());
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
 }
 === gradle/wrapper/gradle-wrapper.jar ===
