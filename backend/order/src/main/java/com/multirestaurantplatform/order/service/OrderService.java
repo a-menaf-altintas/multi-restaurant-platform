@@ -2,74 +2,30 @@
 package com.multirestaurantplatform.order.service;
 
 import com.multirestaurantplatform.order.model.Order;
-import org.springframework.security.core.userdetails.UserDetails; // For authorization
+import org.springframework.security.core.userdetails.UserDetails;
 
 public interface OrderService {
 
     /**
-     * Confirms an order placed by a customer.
-     * This action is typically performed by a restaurant administrator.
+     * Creates a new order from the user's current shopping cart.
+     * Sets the order status to PLACED and clears the cart.
      *
-     * @param orderId The ID of the order to be confirmed.
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
-     * @return The updated Order entity with status CONFIRMED.
+     * @param userId The ID of the user for whom the order is being placed.
+     * This is typically the customer's ID.
+     * @param principal The UserDetails of the authenticated user performing the action.
+     * Used for authorization (e.g., customer placing their own order, or admin placing for a user).
+     * @return The newly created Order entity.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the user or their cart is not found, or if cart items refer to non-existent entities.
+     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the cart is empty or in an invalid state for order placement.
+     * @throws org.springframework.security.access.AccessDeniedException if the principal is not authorized to place an order for the given userId.
+     * @throws com.multirestaurantplatform.order.exception.CartUpdateException if cart items are invalid (e.g. from MenuServiceClient).
      */
+    Order placeOrderFromCart(String userId, UserDetails principal /*, PlaceOrderRequestDto placeOrderRequestDto if needed for delivery address etc. */);
+
     Order confirmOrder(Long orderId, UserDetails restaurantAdminPrincipal);
-
-    /**
-     * Marks a confirmed order as being prepared by the restaurant.
-     * This action is typically performed by a restaurant administrator.
-     *
-     * @param orderId The ID of the order to be marked as preparing.
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
-     * @return The updated Order entity with status PREPARING.
-     */
     Order markAsPreparing(Long orderId, UserDetails restaurantAdminPrincipal);
-
-    /**
-     * Marks a preparing order as ready for pickup by the customer.
-     * This action is typically performed by a restaurant administrator.
-     *
-     * @param orderId The ID of the order to be marked as ready for pickup.
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
-     * @return The updated Order entity with status READY_FOR_PICKUP.
-     */
     Order markAsReadyForPickup(Long orderId, UserDetails restaurantAdminPrincipal);
-
-    /**
-     * Marks an order that is ready for pickup as delivered (picked up by customer).
-     * This action is typically performed by a restaurant administrator.
-     *
-     * @param orderId The ID of the order to be marked as picked up (delivered).
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
-     * @return The updated Order entity with status DELIVERED.
-     */
     Order markAsPickedUp(Long orderId, UserDetails restaurantAdminPrincipal);
-
-    /**
-     * Marks an order that is ready (e.g. READY_FOR_PICKUP) as out for delivery.
-     * This action is typically performed by a restaurant administrator or a delivery manager.
-     *
-     * @param orderId The ID of the order to be marked as out for delivery.
-     * @param principal The UserDetails of the authenticated user performing the action.
-     * @return The updated Order entity with status OUT_FOR_DELIVERY.
-     */
     Order markAsOutForDelivery(Long orderId, UserDetails principal);
-
-    /**
-     * Marks an order that is out for delivery as delivered to the customer.
-     * This action can be performed by a restaurant administrator or potentially a delivery person.
-     *
-     * @param orderId The ID of the order to be marked as delivered.
-     * @param principal The UserDetails of the authenticated user performing the action.
-     * @return The updated Order entity with status DELIVERED.
-     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
-     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in OUT_FOR_DELIVERY state.
-     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
-     */
     Order completeDelivery(Long orderId, UserDetails principal);
-
-
-    // Future methods for order flow:
-    // Order cancelOrder(Long orderId, UserDetails principal); // User or admin
 }

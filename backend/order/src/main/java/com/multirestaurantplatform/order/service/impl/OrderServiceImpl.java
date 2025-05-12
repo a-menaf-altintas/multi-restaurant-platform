@@ -2,24 +2,36 @@
 package com.multirestaurantplatform.order.service.impl;
 
 import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
+import com.multirestaurantplatform.order.dto.CartItemResponse;
+import com.multirestaurantplatform.order.dto.CartResponse;
 import com.multirestaurantplatform.order.exception.IllegalOrderStateException;
 import com.multirestaurantplatform.order.model.Order;
+import com.multirestaurantplatform.order.model.OrderItem;
 import com.multirestaurantplatform.order.model.OrderStatus;
 import com.multirestaurantplatform.order.repository.OrderRepository;
+import com.multirestaurantplatform.order.service.CartService; // Import CartService
 import com.multirestaurantplatform.order.service.OrderService;
 import com.multirestaurantplatform.restaurant.model.Restaurant;
 import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
-import com.multirestaurantplatform.security.model.User; // Your User entity
-import com.multirestaurantplatform.security.repository.UserRepository; // To fetch the User entity
+import com.multirestaurantplatform.security.model.Role; // Import Role
+import com.multirestaurantplatform.security.model.User;
+import com.multirestaurantplatform.security.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +42,85 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final RestaurantRepository restaurantRepository;
     private final UserRepository userRepository;
+    private final CartService cartService; // Inject CartService
 
+    @Override
+    @Transactional
+    public Order placeOrderFromCart(String userIdFromPath, UserDetails principal) {
+        LOGGER.info("Attempting to place order from cart for user ID path: {} by principal: {}", userIdFromPath, principal.getUsername());
+
+        // 1. Authorize the action
+        User customer = userRepository.findByUsername(userIdFromPath) // Assuming userIdFromPath is the username
+                .orElseThrow(() -> new ResourceNotFoundException("User with username " + userIdFromPath + " not found."));
+
+        boolean isAdmin = principal.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(auth -> auth.equals("ROLE_" + Role.ADMIN.name()));
+
+        if (!isAdmin && !principal.getUsername().equals(customer.getUsername())) {
+            LOGGER.warn("Authorization failed: Principal {} is not authorized to place order for user {}", principal.getUsername(), customer.getUsername());
+            throw new AccessDeniedException("You are not authorized to place an order for this user.");
+        }
+        LOGGER.info("User {} authorized to place order for user ID path: {}", principal.getUsername(), userIdFromPath);
+
+        // 2. Retrieve the cart
+        // The userId for cartService should be the actual username/identifier used by CartService
+        CartResponse cartResponse = cartService.getCart(customer.getUsername()); // Use customer's username
+
+        // 3. Validate the cart
+        if (cartResponse == null || CollectionUtils.isEmpty(cartResponse.getItems())) {
+            LOGGER.warn("Order placement failed: Cart for user {} is empty or not found.", customer.getUsername());
+            throw new IllegalOrderStateException("Cannot place order: Cart is empty.");
+        }
+        if (cartResponse.getRestaurantId() == null) {
+            LOGGER.warn("Order placement failed: Cart for user {} does not have a restaurant associated.", customer.getUsername());
+            throw new IllegalOrderStateException("Cannot place order: Cart is not associated with a restaurant.");
+        }
+
+        // 4. Create new Order entity
+        Order newOrder = new Order();
+        newOrder.setCustomerId(customer.getId());
+        newOrder.setRestaurantId(cartResponse.getRestaurantId());
+        newOrder.setTotalPrice(cartResponse.getCartTotalPrice() != null ? cartResponse.getCartTotalPrice() : BigDecimal.ZERO);
+        newOrder.setStatus(OrderStatus.PLACED);
+        // newOrder.setPlacedAt(LocalDateTime.now()); // This is handled by setStatus
+        // Delivery details can be set here if provided, or updated later. For now, they remain null.
+        // newOrder.setDeliveryAddressLine1(...);
+
+        // 5. Create OrderItem entities from cart items
+        List<OrderItem> orderItems = new ArrayList<>();
+        for (CartItemResponse cartItemDto : cartResponse.getItems()) {
+            OrderItem orderItem = new OrderItem();
+            orderItem.setMenuItemId(cartItemDto.getMenuItemId());
+            orderItem.setMenuItemName(cartItemDto.getMenuItemName());
+            orderItem.setQuantity(cartItemDto.getQuantity());
+            orderItem.setUnitPrice(cartItemDto.getUnitPrice());
+            orderItem.setItemTotalPrice(cartItemDto.getTotalPrice());
+            // orderItem.setSelectedOptions(...); // If you have options
+            newOrder.addOrderItem(orderItem); // This also sets orderItem.setOrder(newOrder)
+        }
+        // newOrder.setOrderItems(orderItems); // addOrderItem handles this
+
+        // 6. Save the order (OrderItems will be cascaded)
+        Order savedOrder = orderRepository.save(newOrder);
+        LOGGER.info("Order ID: {} placed successfully for user: {} by principal: {}", savedOrder.getId(), customer.getUsername(), principal.getUsername());
+
+        // 7. Clear the cart
+        try {
+            cartService.clearCart(customer.getUsername());
+            LOGGER.info("Cart cleared for user: {} after order placement.", customer.getUsername());
+        } catch (Exception e) {
+            // Log the error but don't let it fail the order placement transaction.
+            // Cart clearing is a secondary concern here.
+            LOGGER.error("Failed to clear cart for user {} after order placement. Order ID: {}. Error: {}",
+                    customer.getUsername(), savedOrder.getId(), e.getMessage());
+        }
+
+        return savedOrder;
+    }
+
+
+    // ... other existing service methods (confirmOrder, markAsPreparing, etc.)
     @Override
     @Transactional
     public Order confirmOrder(Long orderId, UserDetails restaurantAdminPrincipal) {
@@ -88,8 +178,7 @@ public class OrderServiceImpl implements OrderService {
     public Order markAsOutForDelivery(Long orderId, UserDetails principal) {
         LOGGER.info("Attempting to mark order as OUT_FOR_DELIVERY with ID: {} by user: {}", orderId, principal.getUsername());
         Order order = findOrderByIdOrThrow(orderId);
-        authorizeRestaurantAdminForOrder(order, principal); // Assuming admin confirms this for now
-        // An order can go out for delivery if it's ready for pickup or even directly from preparing
+        authorizeRestaurantAdminForOrder(order, principal);
         if (order.getStatus() != OrderStatus.READY_FOR_PICKUP && order.getStatus() != OrderStatus.PREPARING) {
             LOGGER.warn("Marking order as OUT_FOR_DELIVERY failed: Order ID {} is not in READY_FOR_PICKUP or PREPARING state. Current state: {}", orderId, order.getStatus());
             throw new IllegalOrderStateException(
@@ -107,11 +196,9 @@ public class OrderServiceImpl implements OrderService {
     public Order completeDelivery(Long orderId, UserDetails principal) {
         LOGGER.info("Attempting to complete delivery for order ID: {} by user: {}", orderId, principal.getUsername());
         Order order = findOrderByIdOrThrow(orderId);
-        // For now, assume RESTAURANT_ADMIN can confirm delivery based on driver feedback.
-        // This authorization can be refined later if a DELIVERY_PERSON role is introduced.
         authorizeRestaurantAdminForOrder(order, principal);
         validateOrderStatus(order, OrderStatus.OUT_FOR_DELIVERY, "complete delivery");
-        order.setStatus(OrderStatus.DELIVERED); // This will set 'deliveredAt'
+        order.setStatus(OrderStatus.DELIVERED);
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} marked as DELIVERED (delivery completed) successfully by user: {}", savedOrder.getId(), principal.getUsername());
         return savedOrder;
@@ -154,13 +241,6 @@ public class OrderServiceImpl implements OrderService {
                 principalUsername, orderRestaurantId, order.getId());
     }
 
-    /**
-     * Helper method to validate the current status of an order before a transition.
-     * @param order The order to check.
-     * @param expectedStatus The status the order should be in.
-     * @param actionDescription A description of the action being attempted (e.g., "confirm", "mark as preparing").
-     * @throws IllegalOrderStateException if the order's current status does not match the expected status.
-     */
     private void validateOrderStatus(Order order, OrderStatus expectedStatus, String actionDescription) {
         if (order.getStatus() != expectedStatus) {
             String errorMessage = String.format(
