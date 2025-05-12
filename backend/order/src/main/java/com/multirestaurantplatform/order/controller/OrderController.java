@@ -33,16 +33,7 @@ public class OrderController {
     @PutMapping("/{orderId}/confirm")
     @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
     @Operation(summary = "Confirm an order",
-            description = "Allows a RESTAURANT_ADMIN to confirm a 'PLACED' order, changing its status to 'CONFIRMED'. " +
-                    "The admin must be associated with the restaurant of the order.",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Order confirmed successfully",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in PLACED state)"),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
-                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions or is not admin of the order's restaurant"),
-                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
-            })
+            description = "Allows a RESTAURANT_ADMIN to confirm a 'PLACED' order, changing its status to 'CONFIRMED'.")
     public ResponseEntity<OrderResponse> confirmOrder(
             @Parameter(description = "ID of the order to be confirmed") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
@@ -54,16 +45,7 @@ public class OrderController {
     @PutMapping("/{orderId}/prepare")
     @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
     @Operation(summary = "Mark order as preparing",
-            description = "Allows a RESTAURANT_ADMIN to mark a 'CONFIRMED' order as 'PREPARING'. " +
-                    "The admin must be associated with the restaurant of the order.",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Order status updated to PREPARING",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in CONFIRMED state)"),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
-                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions or is not admin of the order's restaurant"),
-                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
-            })
+            description = "Allows a RESTAURANT_ADMIN to mark a 'CONFIRMED' order as 'PREPARING'.")
     public ResponseEntity<OrderResponse> markAsPreparing(
             @Parameter(description = "ID of the order to be marked as preparing") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
@@ -75,16 +57,7 @@ public class OrderController {
     @PutMapping("/{orderId}/ready-for-pickup")
     @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
     @Operation(summary = "Mark order as ready for pickup",
-            description = "Allows a RESTAURANT_ADMIN to mark a 'PREPARING' order as 'READY_FOR_PICKUP'. " +
-                    "The admin must be associated with the restaurant of the order.",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Order status updated to READY_FOR_PICKUP",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in PREPARING state)"),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
-                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions or is not admin of the order's restaurant"),
-                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
-            })
+            description = "Allows a RESTAURANT_ADMIN to mark a 'PREPARING' order as 'READY_FOR_PICKUP'.")
     public ResponseEntity<OrderResponse> markAsReadyForPickup(
             @Parameter(description = "ID of the order to be marked as ready for pickup") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
@@ -96,16 +69,7 @@ public class OrderController {
     @PutMapping("/{orderId}/picked-up")
     @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
     @Operation(summary = "Mark order as picked up (Delivered)",
-            description = "Allows a RESTAURANT_ADMIN to mark an order that is 'READY_FOR_PICKUP' as 'DELIVERED'. " +
-                    "The admin must be associated with the restaurant of the order.",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Order status updated to DELIVERED",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in READY_FOR_PICKUP state)"),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
-                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions or is not admin of the order's restaurant"),
-                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
-            })
+            description = "Allows a RESTAURANT_ADMIN to mark an order that is 'READY_FOR_PICKUP' as 'DELIVERED'.")
     public ResponseEntity<OrderResponse> markAsPickedUp(
             @Parameter(description = "ID of the order to be marked as picked up") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
@@ -115,26 +79,37 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}/out-for-delivery")
-    @PreAuthorize("hasRole('RESTAURANT_ADMIN')") // Initially, allow RESTAURANT_ADMIN. Could be extended to DELIVERY_PERSON role later.
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
     @Operation(summary = "Mark order as out for delivery",
-            description = "Allows a RESTAURANT_ADMIN to mark an order (typically 'READY_FOR_PICKUP') as 'OUT_FOR_DELIVERY'. " +
-                    "The admin must be associated with the restaurant of the order.",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Order status updated to OUT_FOR_DELIVERY",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in READY_FOR_PICKUP or PREPARING state)"),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
-                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions or is not admin of the order's restaurant"),
-                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
-            })
+            description = "Allows a RESTAURANT_ADMIN to mark an order (typically 'READY_FOR_PICKUP') as 'OUT_FOR_DELIVERY'.")
     public ResponseEntity<OrderResponse> markAsOutForDelivery(
             @Parameter(description = "ID of the order to be marked as out for delivery") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-
         LOGGER.info("API call to mark order ID: {} as OUT_FOR_DELIVERY by user: {}", orderId, userDetails.getUsername());
         Order outForDeliveryOrder = orderService.markAsOutForDelivery(orderId, userDetails);
-        OrderResponse responseDto = OrderResponse.fromEntity(outForDeliveryOrder);
-        LOGGER.info("Order ID: {} marked as OUT_FOR_DELIVERY. Status: {}", responseDto.getId(), responseDto.getStatus());
+        return ResponseEntity.ok(OrderResponse.fromEntity(outForDeliveryOrder));
+    }
+
+    @PutMapping("/{orderId}/delivery-completed")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')") // Or potentially a DELIVERY_PERSON_ROLE later
+    @Operation(summary = "Mark order delivery as completed (Delivered)",
+            description = "Allows a RESTAURANT_ADMIN (or future DELIVERY_PERSON) to mark an 'OUT_FOR_DELIVERY' order as 'DELIVERED'.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order status updated to DELIVERED",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in OUT_FOR_DELIVERY state)"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions"),
+                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
+            })
+    public ResponseEntity<OrderResponse> completeDelivery(
+            @Parameter(description = "ID of the order whose delivery is completed") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+
+        LOGGER.info("API call to complete delivery for order ID: {} by user: {}", orderId, userDetails.getUsername());
+        Order deliveredOrder = orderService.completeDelivery(orderId, userDetails);
+        OrderResponse responseDto = OrderResponse.fromEntity(deliveredOrder);
+        LOGGER.info("Order ID: {} delivery completed. Status: {}", responseDto.getId(), responseDto.getStatus());
         return ResponseEntity.ok(responseDto);
     }
 
@@ -142,7 +117,6 @@ public class OrderController {
     // - GET /api/v1/orders/{orderId}
     // - GET /api/v1/restaurant/{restaurantId}/orders
     // - GET /api/v1/users/{userId}/orders
-    // - POST /api/v1/orders
-    // - PUT /api/v1/orders/{orderId}/delivered (for delivery scenario completion)
+    // - POST /api/v1/orders (from cart to create order - for CUSTOMER)
     // - PUT /api/v1/orders/{orderId}/cancel
 }

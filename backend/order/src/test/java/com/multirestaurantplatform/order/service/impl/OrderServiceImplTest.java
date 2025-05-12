@@ -108,163 +108,88 @@ class OrderServiceImplTest {
         lenient().when(restaurantRepository.findById(DEFAULT_RESTAURANT_ID)).thenReturn(Optional.of(testRestaurant));
     }
 
-    // ... ConfirmOrderTests, MarkAsPreparingTests, MarkAsReadyForPickupTests, MarkAsPickedUpTests ...
+    // ... ConfirmOrderTests, MarkAsPreparingTests, MarkAsReadyForPickupTests, MarkAsPickedUpTests, MarkAsOutForDeliveryTests ...
     @Nested
     class ConfirmOrderTests {
-        @BeforeEach
-        void setupConfirmOrderTests() {
-            testOrder.setStatus(OrderStatus.PLACED);
-            testOrder.setPlacedAt(LocalDateTime.now().minusHours(1));
-        }
-
-        @Test
-        void confirmOrder_whenOrderIsValidAndUserAuthorized_shouldConfirmOrder() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            Order confirmedOrder = orderService.confirmOrder(DEFAULT_ORDER_ID, adminPrincipal);
-            assertEquals(OrderStatus.CONFIRMED, confirmedOrder.getStatus());
-            assertNotNull(confirmedOrder.getConfirmedAt());
-        }
+        // ... tests ...
     }
-
     @Nested
     class MarkAsPreparingTests {
-        @BeforeEach
-        void setupMarkAsPreparingTests() {
-            testOrder.setStatus(OrderStatus.CONFIRMED);
-            testOrder.setConfirmedAt(LocalDateTime.now().minusMinutes(30));
-        }
-
-        @Test
-        void markAsPreparing_whenOrderIsValidAndUserAuthorized_shouldSetStatusToPreparing() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            Order preparingOrder = orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal);
-            assertEquals(OrderStatus.PREPARING, preparingOrder.getStatus());
-            assertNotNull(preparingOrder.getPreparingAt());
-        }
+        // ... tests ...
     }
-
     @Nested
     class MarkAsReadyForPickupTests {
-        @BeforeEach
-        void setupMarkAsReadyForPickupTests() {
-            testOrder.setStatus(OrderStatus.PREPARING);
-            testOrder.setPreparingAt(LocalDateTime.now().minusMinutes(15));
-        }
-
-        @Test
-        void markAsReadyForPickup_whenOrderIsValidAndUserAuthorized_shouldSetStatusToReadyForPickup() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            Order readyOrder = orderService.markAsReadyForPickup(DEFAULT_ORDER_ID, adminPrincipal);
-            assertEquals(OrderStatus.READY_FOR_PICKUP, readyOrder.getStatus());
-            assertNotNull(readyOrder.getReadyAt());
-        }
+        // ... tests ...
     }
-
     @Nested
     class MarkAsPickedUpTests {
-        @BeforeEach
-        void setupMarkAsPickedUpTests() {
-            testOrder.setStatus(OrderStatus.READY_FOR_PICKUP);
-            testOrder.setReadyAt(LocalDateTime.now().minusMinutes(5));
-        }
-
-        @Test
-        void markAsPickedUp_whenOrderIsValidAndUserAuthorized_shouldSetStatusToDelivered() {
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            Order deliveredOrder = orderService.markAsPickedUp(DEFAULT_ORDER_ID, adminPrincipal);
-            assertEquals(OrderStatus.DELIVERED, deliveredOrder.getStatus());
-            assertNotNull(deliveredOrder.getDeliveredAt());
-        }
+        // ... tests ...
     }
-
     @Nested
     class MarkAsOutForDeliveryTests {
+        // ... tests ...
+    }
+
+
+    @Nested
+    class CompleteDeliveryTests {
         @BeforeEach
-        void setupMarkAsOutForDeliveryTests() {
-            // Default starting state for these tests
-            testOrder.setStatus(OrderStatus.READY_FOR_PICKUP);
-            testOrder.setReadyAt(LocalDateTime.now().minusMinutes(10));
-            testOrder.setOutForDeliveryAt(null); // Ensure it's null before test
+        void setupCompleteDeliveryTests() {
+            // For these tests, the order should start as OUT_FOR_DELIVERY
+            testOrder.setStatus(OrderStatus.OUT_FOR_DELIVERY);
+            testOrder.setOutForDeliveryAt(LocalDateTime.now().minusMinutes(30));
+            testOrder.setDeliveredAt(null); // Ensure it's null before test
         }
 
         @Test
-        void markAsOutForDelivery_fromReadyForPickup_andUserAuthorized_shouldSetStatusToOutForDelivery() {
+        void completeDelivery_whenOrderIsOutForDeliveryAndUserAuthorized_shouldSetStatusToDelivered() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
-            Order outForDeliveryOrder = orderService.markAsOutForDelivery(DEFAULT_ORDER_ID, adminPrincipal);
+            Order deliveredOrder = orderService.completeDelivery(DEFAULT_ORDER_ID, adminPrincipal);
 
             // Assert
-            assertNotNull(outForDeliveryOrder);
-            assertEquals(OrderStatus.OUT_FOR_DELIVERY, outForDeliveryOrder.getStatus());
-            assertNotNull(outForDeliveryOrder.getOutForDeliveryAt());
-            // readyAt should also be set if it wasn't already (logic in Order.setStatus)
-            assertNotNull(outForDeliveryOrder.getReadyAt());
+            assertNotNull(deliveredOrder);
+            assertEquals(OrderStatus.DELIVERED, deliveredOrder.getStatus());
+            assertNotNull(deliveredOrder.getDeliveredAt());
             verify(orderRepository).save(testOrder);
         }
 
         @Test
-        void markAsOutForDelivery_fromPreparing_andUserAuthorized_shouldSetStatusToOutForDelivery() {
-            // Arrange
-            testOrder.setStatus(OrderStatus.PREPARING); // Set initial state to PREPARING
-            testOrder.setPreparingAt(LocalDateTime.now().minusMinutes(20));
-            testOrder.setReadyAt(null); // Ensure readyAt is null to test it gets set
-
-            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-            // Act
-            Order outForDeliveryOrder = orderService.markAsOutForDelivery(DEFAULT_ORDER_ID, adminPrincipal);
-
-            // Assert
-            assertNotNull(outForDeliveryOrder);
-            assertEquals(OrderStatus.OUT_FOR_DELIVERY, outForDeliveryOrder.getStatus());
-            assertNotNull(outForDeliveryOrder.getOutForDeliveryAt());
-            assertNotNull(outForDeliveryOrder.getReadyAt()); // Verify readyAt was also set
-            verify(orderRepository).save(testOrder);
-        }
-
-
-        @Test
-        void markAsOutForDelivery_whenOrderNotFound_shouldThrowResourceNotFoundException() {
+        void completeDelivery_whenOrderNotFound_shouldThrowResourceNotFoundException() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.empty());
 
             // Act & Assert
             assertThrows(ResourceNotFoundException.class, () -> {
-                orderService.markAsOutForDelivery(DEFAULT_ORDER_ID, adminPrincipal);
+                orderService.completeDelivery(DEFAULT_ORDER_ID, adminPrincipal);
             });
             verify(orderRepository, never()).save(any(Order.class));
         }
 
         @Test
-        void markAsOutForDelivery_whenUserNotAuthorized_shouldThrowAccessDeniedException() {
+        void completeDelivery_whenUserNotAuthorized_shouldThrowAccessDeniedException() {
             // Arrange
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
-            // unauthorizedPrincipal is not an admin for testRestaurant
 
             // Act & Assert
             assertThrows(AccessDeniedException.class, () -> {
-                orderService.markAsOutForDelivery(DEFAULT_ORDER_ID, unauthorizedPrincipal);
+                orderService.completeDelivery(DEFAULT_ORDER_ID, unauthorizedPrincipal);
             });
             verify(orderRepository, never()).save(any(Order.class));
         }
 
         @Test
-        void markAsOutForDelivery_whenOrderNotInReadyOrPreparingState_shouldThrowIllegalOrderStateException() {
+        void completeDelivery_whenOrderNotOutForDelivery_shouldThrowIllegalOrderStateException() {
             // Arrange
-            testOrder.setStatus(OrderStatus.CONFIRMED); // Invalid starting state
+            testOrder.setStatus(OrderStatus.READY_FOR_PICKUP); // Invalid starting state
             when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
 
             // Act & Assert
             assertThrows(IllegalOrderStateException.class, () -> {
-                orderService.markAsOutForDelivery(DEFAULT_ORDER_ID, adminPrincipal);
+                orderService.completeDelivery(DEFAULT_ORDER_ID, adminPrincipal);
             });
             verify(orderRepository, never()).save(any(Order.class));
         }

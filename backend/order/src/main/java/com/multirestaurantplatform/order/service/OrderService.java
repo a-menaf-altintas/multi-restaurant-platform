@@ -53,15 +53,23 @@ public interface OrderService {
      * @param orderId The ID of the order to be marked as out for delivery.
      * @param principal The UserDetails of the authenticated user performing the action.
      * @return The updated Order entity with status OUT_FOR_DELIVERY.
-     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
-     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in a state
-     * from which it can be marked as out for delivery (e.g., not READY_FOR_PICKUP).
-     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
      */
     Order markAsOutForDelivery(Long orderId, UserDetails principal);
 
+    /**
+     * Marks an order that is out for delivery as delivered to the customer.
+     * This action can be performed by a restaurant administrator or potentially a delivery person.
+     *
+     * @param orderId The ID of the order to be marked as delivered.
+     * @param principal The UserDetails of the authenticated user performing the action.
+     * @return The updated Order entity with status DELIVERED.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
+     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in OUT_FOR_DELIVERY state.
+     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
+     */
+    Order completeDelivery(Long orderId, UserDetails principal);
+
 
     // Future methods for order flow:
-    // Order markAsDelivered(Long orderId, UserDetails principal); // Could be overloaded for delivery scenarios
     // Order cancelOrder(Long orderId, UserDetails principal); // User or admin
 }
