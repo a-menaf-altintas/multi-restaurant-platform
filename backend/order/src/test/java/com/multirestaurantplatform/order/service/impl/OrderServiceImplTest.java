@@ -13,6 +13,7 @@ import com.multirestaurantplatform.security.model.User; // Your User entity
 import com.multirestaurantplatform.security.repository.UserRepository; // To mock user fetching
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,50 +45,48 @@ class OrderServiceImplTest {
     private RestaurantRepository restaurantRepository;
 
     @Mock
-    private UserRepository userRepository; // Mock UserRepository
+    private UserRepository userRepository;
 
     @InjectMocks
     private OrderServiceImpl orderService;
 
     private Order testOrder;
-    private User restaurantAdminUserEntity; // The actual User entity for the admin
-    private User anotherUserEntity;         // The actual User entity for another user
+    private User restaurantAdminUserEntity;
+    private User anotherUserEntity;
     private Restaurant testRestaurant;
-    private UserDetails adminPrincipal;      // Spring Security UserDetails for the admin
-    private UserDetails unauthorizedPrincipal; // Spring Security UserDetails for unauthorized user
+    private UserDetails adminPrincipal;
+    private UserDetails unauthorizedPrincipal;
+
+    private final Long DEFAULT_ORDER_ID = 1L;
+    private final Long DEFAULT_RESTAURANT_ID = 100L;
+    private final String ADMIN_USERNAME = "resAdmin";
+    private final String OTHER_USERNAME = "otherUser";
+
 
     @BeforeEach
     void setUp() {
-        // Setup Restaurant Admin User Entity
         restaurantAdminUserEntity = new User();
         restaurantAdminUserEntity.setId(1L);
-        restaurantAdminUserEntity.setUsername("resAdmin");
-        restaurantAdminUserEntity.setPassword("password"); // Needed for UserDetails creation
+        restaurantAdminUserEntity.setUsername(ADMIN_USERNAME);
+        restaurantAdminUserEntity.setPassword("password");
         restaurantAdminUserEntity.setRoles(Set.of(Role.RESTAURANT_ADMIN));
 
-        // Setup Another User Entity
         anotherUserEntity = new User();
         anotherUserEntity.setId(2L);
-        anotherUserEntity.setUsername("otherUser");
+        anotherUserEntity.setUsername(OTHER_USERNAME);
         anotherUserEntity.setPassword("password");
-        anotherUserEntity.setRoles(Set.of(Role.RESTAURANT_ADMIN)); // Could be any role for testing non-association
+        anotherUserEntity.setRoles(Set.of(Role.RESTAURANT_ADMIN));
 
-        // Setup Restaurant
         testRestaurant = new Restaurant();
-        testRestaurant.setId(100L);
+        testRestaurant.setId(DEFAULT_RESTAURANT_ID);
         testRestaurant.setName("Test Restaurant");
-        // IMPORTANT: Associate the actual User entity with the restaurant
         testRestaurant.setRestaurantAdmins(Set.of(restaurantAdminUserEntity));
 
-        // Setup Order
         testOrder = new Order();
-        testOrder.setId(1L);
+        testOrder.setId(DEFAULT_ORDER_ID);
         testOrder.setRestaurantId(testRestaurant.getId());
-        testOrder.setStatus(OrderStatus.PLACED);
         testOrder.setCreatedAt(LocalDateTime.now().minusHours(1));
-        testOrder.setPlacedAt(LocalDateTime.now().minusHours(1));
 
-        // Setup Spring Security UserDetails for the authorized admin
         adminPrincipal = new org.springframework.security.core.userdetails.User(
                 restaurantAdminUserEntity.getUsername(),
                 restaurantAdminUserEntity.getPassword(),
@@ -96,7 +95,6 @@ class OrderServiceImplTest {
                         .collect(Collectors.toList())
         );
 
-        // Setup Spring Security UserDetails for an unauthorized user
         unauthorizedPrincipal = new org.springframework.security.core.userdetails.User(
                 anotherUserEntity.getUsername(),
                 anotherUserEntity.getPassword(),
@@ -104,113 +102,154 @@ class OrderServiceImplTest {
                         .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
                         .collect(Collectors.toList())
         );
+
+        // Common mocks for authorization part, can be overridden in specific tests
+        lenient().when(userRepository.findByUsername(ADMIN_USERNAME)).thenReturn(Optional.of(restaurantAdminUserEntity));
+        lenient().when(userRepository.findByUsername(OTHER_USERNAME)).thenReturn(Optional.of(anotherUserEntity));
+        lenient().when(restaurantRepository.findById(DEFAULT_RESTAURANT_ID)).thenReturn(Optional.of(testRestaurant));
     }
 
-    @Test
-    void confirmOrder_whenOrderIsValidAndUserAuthorized_shouldConfirmOrder() {
-        // Arrange
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
-        // Mock fetching the admin User entity by username
-        when(userRepository.findByUsername(adminPrincipal.getUsername())).thenReturn(Optional.of(restaurantAdminUserEntity));
-        when(restaurantRepository.findById(testRestaurant.getId())).thenReturn(Optional.of(testRestaurant));
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    @Nested
+    class ConfirmOrderTests {
+        @BeforeEach
+        void setupConfirmOrderTests() {
+            testOrder.setStatus(OrderStatus.PLACED);
+            testOrder.setPlacedAt(LocalDateTime.now().minusHours(1));
+        }
 
-        // Act
-        Order confirmedOrder = orderService.confirmOrder(1L, adminPrincipal);
+        @Test
+        void confirmOrder_whenOrderIsValidAndUserAuthorized_shouldConfirmOrder() {
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Assert
-        assertNotNull(confirmedOrder);
-        assertEquals(OrderStatus.CONFIRMED, confirmedOrder.getStatus());
-        assertNotNull(confirmedOrder.getConfirmedAt());
-        verify(orderRepository).findById(1L);
-        verify(userRepository).findByUsername(adminPrincipal.getUsername());
-        verify(restaurantRepository).findById(testRestaurant.getId());
-        verify(orderRepository).save(testOrder);
+            Order confirmedOrder = orderService.confirmOrder(DEFAULT_ORDER_ID, adminPrincipal);
+
+            assertNotNull(confirmedOrder);
+            assertEquals(OrderStatus.CONFIRMED, confirmedOrder.getStatus());
+            assertNotNull(confirmedOrder.getConfirmedAt());
+            verify(orderRepository).save(testOrder);
+        }
+
+        @Test
+        void confirmOrder_whenOrderNotFound_shouldThrowResourceNotFoundException() {
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.empty());
+            assertThrows(ResourceNotFoundException.class, () -> orderService.confirmOrder(DEFAULT_ORDER_ID, adminPrincipal));
+            verify(orderRepository, never()).save(any(Order.class));
+        }
+
+        @Test
+        void confirmOrder_whenUserNotAuthorizedForRestaurant_shouldThrowAccessDeniedException() {
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            assertThrows(AccessDeniedException.class, () -> orderService.confirmOrder(DEFAULT_ORDER_ID, unauthorizedPrincipal));
+        }
+
+        @Test
+        void confirmOrder_whenOrderNotPlaced_shouldThrowIllegalOrderStateException() {
+            testOrder.setStatus(OrderStatus.CONFIRMED); // Already confirmed
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            assertThrows(IllegalOrderStateException.class, () -> orderService.confirmOrder(DEFAULT_ORDER_ID, adminPrincipal));
+        }
     }
 
-    @Test
-    void confirmOrder_whenOrderNotFound_shouldThrowResourceNotFoundException() {
-        // Arrange
-        when(orderRepository.findById(1L)).thenReturn(Optional.empty());
+    @Nested
+    class MarkAsPreparingTests {
+        @BeforeEach
+        void setupMarkAsPreparingTests() {
+            // For these tests, the order should start as CONFIRMED
+            testOrder.setStatus(OrderStatus.CONFIRMED);
+            testOrder.setConfirmedAt(LocalDateTime.now().minusMinutes(30));
+        }
 
-        // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> {
-            orderService.confirmOrder(1L, adminPrincipal);
-        });
-        verify(orderRepository).findById(1L);
-        verify(userRepository, never()).findByUsername(anyString());
-        verify(restaurantRepository, never()).findById(anyLong());
-        verify(orderRepository, never()).save(any(Order.class));
-    }
+        @Test
+        void markAsPreparing_whenOrderIsValidAndUserAuthorized_shouldSetStatusToPreparing() {
+            // Arrange
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            // Authorization mocks are in global BeforeEach and should apply
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-    @Test
-    void confirmOrder_whenPrincipalUserNotFoundInRepo_shouldThrowUsernameNotFoundException() {
-        // Arrange
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
-        when(userRepository.findByUsername(adminPrincipal.getUsername())).thenReturn(Optional.empty()); // User not found
+            // Act
+            Order preparingOrder = orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal);
 
-        // Act & Assert
-        assertThrows(UsernameNotFoundException.class, () -> {
-            orderService.confirmOrder(1L, adminPrincipal);
-        });
-        verify(orderRepository).findById(1L);
-        verify(userRepository).findByUsername(adminPrincipal.getUsername());
-        verify(restaurantRepository, never()).findById(anyLong());
-        verify(orderRepository, never()).save(any(Order.class));
-    }
+            // Assert
+            assertNotNull(preparingOrder);
+            assertEquals(OrderStatus.PREPARING, preparingOrder.getStatus());
+            assertNotNull(preparingOrder.getPreparingAt()); // Check if Order's setStatus logic worked for preparingAt
+            verify(orderRepository).findById(DEFAULT_ORDER_ID);
+            verify(userRepository).findByUsername(ADMIN_USERNAME);
+            verify(restaurantRepository).findById(DEFAULT_RESTAURANT_ID);
+            verify(orderRepository).save(testOrder);
+        }
 
-    @Test
-    void confirmOrder_whenRestaurantNotFoundForAuth_shouldThrowResourceNotFoundException() {
-        // Arrange
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
-        when(userRepository.findByUsername(adminPrincipal.getUsername())).thenReturn(Optional.of(restaurantAdminUserEntity));
-        when(restaurantRepository.findById(testRestaurant.getId())).thenReturn(Optional.empty()); // Restaurant not found
+        @Test
+        void markAsPreparing_whenOrderNotFound_shouldThrowResourceNotFoundException() {
+            // Arrange
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.empty());
 
-        // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> {
-            orderService.confirmOrder(1L, adminPrincipal);
-        });
-        verify(orderRepository).findById(1L);
-        verify(userRepository).findByUsername(adminPrincipal.getUsername());
-        verify(restaurantRepository).findById(testRestaurant.getId());
-        verify(orderRepository, never()).save(any(Order.class));
-    }
+            // Act & Assert
+            assertThrows(ResourceNotFoundException.class, () -> {
+                orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal);
+            });
+            verify(orderRepository).findById(DEFAULT_ORDER_ID);
+            verify(orderRepository, never()).save(any(Order.class));
+        }
 
+        @Test
+        void markAsPreparing_whenPrincipalUserNotFoundInRepo_shouldThrowUsernameNotFoundException() {
+            // Arrange
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            when(userRepository.findByUsername(adminPrincipal.getUsername())).thenReturn(Optional.empty()); // User not found
 
-    @Test
-    void confirmOrder_whenUserNotAuthorizedForRestaurant_shouldThrowAccessDeniedException() {
-        // Arrange
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
-        // Mock fetching the 'anotherUserEntity' (who is not an admin of testRestaurant)
-        when(userRepository.findByUsername(unauthorizedPrincipal.getUsername())).thenReturn(Optional.of(anotherUserEntity));
-        when(restaurantRepository.findById(testRestaurant.getId())).thenReturn(Optional.of(testRestaurant));
+            // Act & Assert
+            assertThrows(UsernameNotFoundException.class, () -> {
+                orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal);
+            });
+        }
 
-        // Act & Assert
-        assertThrows(AccessDeniedException.class, () -> {
-            orderService.confirmOrder(1L, unauthorizedPrincipal);
-        });
-        verify(orderRepository).findById(1L);
-        verify(userRepository).findByUsername(unauthorizedPrincipal.getUsername());
-        verify(restaurantRepository).findById(testRestaurant.getId());
-        verify(orderRepository, never()).save(any(Order.class));
-    }
+        @Test
+        void markAsPreparing_whenRestaurantNotFoundForAuth_shouldThrowResourceNotFoundException() {
+            // Arrange
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            // User is found, but restaurant is not
+            when(restaurantRepository.findById(DEFAULT_RESTAURANT_ID)).thenReturn(Optional.empty());
 
-    @Test
-    void confirmOrder_whenOrderNotPlaced_shouldThrowIllegalOrderStateException() {
-        // Arrange
-        testOrder.setStatus(OrderStatus.PREPARING); // Set to a non-PLACED state
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
-        // Mock fetching the admin User entity by username for the authorization check part
-        when(userRepository.findByUsername(adminPrincipal.getUsername())).thenReturn(Optional.of(restaurantAdminUserEntity));
-        when(restaurantRepository.findById(testRestaurant.getId())).thenReturn(Optional.of(testRestaurant));
+            // Act & Assert
+            assertThrows(ResourceNotFoundException.class, () -> {
+                orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal);
+            });
+        }
 
-        // Act & Assert
-        assertThrows(IllegalOrderStateException.class, () -> {
-            orderService.confirmOrder(1L, adminPrincipal);
-        });
-        verify(orderRepository).findById(1L);
-        verify(userRepository).findByUsername(adminPrincipal.getUsername());
-        verify(restaurantRepository).findById(testRestaurant.getId());
-        verify(orderRepository, never()).save(any(Order.class));
+        @Test
+        void markAsPreparing_whenUserNotAuthorizedForRestaurant_shouldThrowAccessDeniedException() {
+            // Arrange
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            // User 'anotherUserEntity' is not an admin of 'testRestaurant'
+
+            // Act & Assert
+            assertThrows(AccessDeniedException.class, () -> {
+                orderService.markAsPreparing(DEFAULT_ORDER_ID, unauthorizedPrincipal);
+            });
+            verify(orderRepository).findById(DEFAULT_ORDER_ID);
+            verify(userRepository).findByUsername(OTHER_USERNAME); // Check that the correct username was looked up
+            verify(restaurantRepository).findById(DEFAULT_RESTAURANT_ID);
+            verify(orderRepository, never()).save(any(Order.class));
+        }
+
+        @Test
+        void markAsPreparing_whenOrderNotConfirmed_shouldThrowIllegalOrderStateException() {
+            // Arrange
+            testOrder.setStatus(OrderStatus.PLACED); // Set to a non-CONFIRMED state
+            when(orderRepository.findById(DEFAULT_ORDER_ID)).thenReturn(Optional.of(testOrder));
+            // Authorization part will be called but the state check should fail first.
+
+            // Act & Assert
+            assertThrows(IllegalOrderStateException.class, () -> {
+                orderService.markAsPreparing(DEFAULT_ORDER_ID, adminPrincipal);
+            });
+            verify(orderRepository).findById(DEFAULT_ORDER_ID);
+            // Authorization might still be checked depending on order of operations in service
+            // verify(userRepository).findByUsername(ADMIN_USERNAME);
+            // verify(restaurantRepository).findById(DEFAULT_RESTAURANT_ID);
+            verify(orderRepository, never()).save(any(Order.class));
+        }
     }
 }

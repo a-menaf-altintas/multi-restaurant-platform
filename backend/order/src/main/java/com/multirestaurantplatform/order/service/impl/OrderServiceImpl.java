@@ -17,7 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException; // For fetching user
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,54 +29,15 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final RestaurantRepository restaurantRepository;
-    private final UserRepository userRepository; // Inject UserRepository
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
     public Order confirmOrder(Long orderId, UserDetails restaurantAdminPrincipal) {
         LOGGER.info("Attempting to confirm order with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> {
-                    LOGGER.warn("Order confirmation failed: Order not found with ID: {}", orderId);
-                    return new ResourceNotFoundException("Order not found with id: " + orderId);
-                });
-
-        Long orderRestaurantId = order.getRestaurantId(); // From your existing Order entity
-        if (orderRestaurantId == null) {
-            LOGGER.error("Order confirmation failed: Order ID {} is not associated with any restaurant.", orderId);
-            throw new IllegalStateException("Order " + orderId + " has no associated restaurant ID.");
-        }
-
-        // --- Authorization Check ---
-        String principalUsername = restaurantAdminPrincipal.getUsername();
-        // Fetch the full User entity for the authenticated principal
-        User adminUser = userRepository.findByUsername(principalUsername)
-                .orElseThrow(() -> {
-                    // This case should ideally be rare if the UserDetails came from a valid user session
-                    LOGGER.warn("Authorization failed: User {} (from principal) not found in repository for order confirmation.", principalUsername);
-                    return new UsernameNotFoundException("Authenticated user " + principalUsername + " not found in database.");
-                });
-
-        Restaurant restaurant = restaurantRepository.findById(orderRestaurantId)
-                .orElseThrow(() -> {
-                    LOGGER.warn("Restaurant ID {} (for order ID {}) not found during authorization.", orderRestaurantId, orderId);
-                    return new ResourceNotFoundException("Restaurant not found with ID: " + orderRestaurantId + " for order " + orderId);
-                });
-
-        // Your Restaurant entity has Set<User> restaurantAdmins. Check if the fetched adminUser is in this set.
-        boolean isAuthorized = restaurant.getRestaurantAdmins().stream()
-                .anyMatch(admin -> admin.getId().equals(adminUser.getId()));
-
-        if (!isAuthorized) {
-            LOGGER.warn("Authorization failed: User {} (ID: {}) is not an admin for restaurant ID {} (Order ID: {})",
-                    principalUsername, adminUser.getId(), orderRestaurantId, orderId);
-            throw new AccessDeniedException("User " + principalUsername +
-                    " is not authorized to confirm orders for restaurant ID " + orderRestaurantId);
-        }
-        LOGGER.info("User {} is authorized admin for restaurant ID {} of order ID {}",
-                principalUsername, orderRestaurantId, orderId);
-        // --- End Authorization Check ---
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
 
         if (order.getStatus() != OrderStatus.PLACED) {
             LOGGER.warn("Order confirmation failed: Order ID {} is not in PLACED state. Current state: {}", orderId, order.getStatus());
@@ -85,10 +46,83 @@ public class OrderServiceImpl implements OrderService {
             );
         }
 
-        order.setStatus(OrderStatus.CONFIRMED); // This will also set 'confirmedAt' via your Order entity's setStatus method
+        order.setStatus(OrderStatus.CONFIRMED); // This will also set 'confirmedAt' via Order entity's setStatus
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} confirmed successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
-
         return savedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order markAsPreparing(Long orderId, UserDetails restaurantAdminPrincipal) {
+        LOGGER.info("Attempting to mark order as PREPARING with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
+
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+
+        if (order.getStatus() != OrderStatus.CONFIRMED) {
+            LOGGER.warn("Marking order as PREPARING failed: Order ID {} is not in CONFIRMED state. Current state: {}", orderId, order.getStatus());
+            throw new IllegalOrderStateException(
+                    "Order cannot be marked as preparing. Expected status CONFIRMED, but was " + order.getStatus() + "."
+            );
+        }
+
+        order.setStatus(OrderStatus.PREPARING); // This will also set 'preparingAt' via Order entity's setStatus
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as PREPARING successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
+        return savedOrder;
+    }
+
+    /**
+     * Helper method to fetch an order by ID or throw ResourceNotFoundException.
+     * @param orderId The ID of the order.
+     * @return The found Order entity.
+     */
+    private Order findOrderByIdOrThrow(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("Order operation failed: Order not found with ID: {}", orderId);
+                    return new ResourceNotFoundException("Order not found with id: " + orderId);
+                });
+    }
+
+    /**
+     * Helper method to authorize if the restaurant admin principal can manage the given order.
+     * @param order The order to check against.
+     * @param restaurantAdminPrincipal The principal of the restaurant admin.
+     * @throws ResourceNotFoundException if related restaurant or user not found.
+     * @throws AccessDeniedException if the user is not authorized.
+     */
+    private void authorizeRestaurantAdminForOrder(Order order, UserDetails restaurantAdminPrincipal) {
+        Long orderRestaurantId = order.getRestaurantId();
+        if (orderRestaurantId == null) {
+            LOGGER.error("Authorization failed: Order ID {} is not associated with any restaurant.", order.getId());
+            throw new IllegalStateException("Order " + order.getId() + " has no associated restaurant ID.");
+        }
+
+        String principalUsername = restaurantAdminPrincipal.getUsername();
+        User adminUser = userRepository.findByUsername(principalUsername)
+                .orElseThrow(() -> {
+                    LOGGER.warn("Authorization failed: User {} (from principal) not found in repository.", principalUsername);
+                    return new UsernameNotFoundException("Authenticated user " + principalUsername + " not found in database.");
+                });
+
+        Restaurant restaurant = restaurantRepository.findById(orderRestaurantId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("Restaurant ID {} (for order ID {}) not found during authorization.", orderRestaurantId, order.getId());
+                    return new ResourceNotFoundException("Restaurant not found with ID: " + orderRestaurantId + " for order " + order.getId());
+                });
+
+        boolean isAuthorized = restaurant.getRestaurantAdmins().stream()
+                .anyMatch(admin -> admin.getId().equals(adminUser.getId()));
+
+        if (!isAuthorized) {
+            LOGGER.warn("Authorization failed: User {} (ID: {}) is not an admin for restaurant ID {} (Order ID: {})",
+                    principalUsername, adminUser.getId(), orderRestaurantId, order.getId());
+            throw new AccessDeniedException("User " + principalUsername +
+                    " is not authorized to manage orders for restaurant ID " + orderRestaurantId);
+        }
+        LOGGER.debug("User {} is authorized admin for restaurant ID {} of order ID {}",
+                principalUsername, orderRestaurantId, order.getId());
     }
 }
