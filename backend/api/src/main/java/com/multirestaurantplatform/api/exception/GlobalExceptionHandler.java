@@ -6,6 +6,7 @@ import com.multirestaurantplatform.common.exception.ConflictException; // Added
 import com.multirestaurantplatform.common.exception.ResourceNotFoundException; // Added
 import com.multirestaurantplatform.api.dto.error.ErrorResponse; // Added
 
+import com.multirestaurantplatform.order.exception.IllegalOrderStateException;
 import jakarta.servlet.http.HttpServletRequest; // Added if not present, or use WebRequest
 import org.slf4j.Logger; // Added
 import org.slf4j.LoggerFactory; // Added
@@ -127,5 +128,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "An unexpected internal server error occurred.", // Generic message to client
                 request.getRequestURI());
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(IllegalOrderStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalOrderStateException(
+            IllegalOrderStateException ex, HttpServletRequest request) {
+        customLogger.warn("IllegalOrderStateException: {} at path {}", ex.getMessage(), request.getRequestURI());
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(), // 409 Conflict is appropriate for invalid state transition
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI());
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
 }
