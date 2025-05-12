@@ -5,7 +5,29 @@ plugins {
 
 description = 'Parent module for all backend services'
 
-// No specific dependencies or plugins here yet,
-// as most will be in the individual microservice modules.
-// This file primarily serves as a marker for the 'backend' project
-// and can be used for shared configurations among all backend modules later.
+subprojects {
+    apply plugin: 'java' // Ensure java plugin is applied
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    // Add this block to enable the -parameters flag for Java compilation
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        options.compilerArgs += '-parameters' // Add this line
+    }
+
+    // Common dependencies for all subprojects
+    dependencies {
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testAnnotationProcessor 'org.projectlombok:lombok'
+    }
+
+    tasks.withType(Test) {
+        useJUnitPlatform()
+    }
+}
