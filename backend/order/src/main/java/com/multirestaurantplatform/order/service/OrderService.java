@@ -35,8 +35,22 @@ public interface OrderService {
      */
     Order markAsPreparing(Long orderId, UserDetails restaurantAdminPrincipal);
 
+    /**
+     * Marks a preparing order as ready for pickup by the customer.
+     * This action is typically performed by a restaurant administrator.
+     *
+     * @param orderId The ID of the order to be marked as ready for pickup.
+     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin,
+     * used for authorization checks.
+     * @return The updated Order entity with status READY_FOR_PICKUP.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
+     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in PREPARING state.
+     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
+     */
+    Order markAsReadyForPickup(Long orderId, UserDetails restaurantAdminPrincipal);
+
     // Future methods for order flow:
-    // Order markAsReady(Long orderId, UserDetails restaurantAdminPrincipal);
-    // Order markAsDelivered(Long orderId, UserDetails restaurantAdminPrincipal); // Or by a delivery agent
+    // Order markAsOutForDelivery(Long orderId, UserDetails restaurantAdminPrincipal);
+    // Order markAsDelivered(Long orderId, UserDetails principal); // User, admin, or delivery agent
     // Order cancelOrder(Long orderId, UserDetails principal); // User or admin
 }

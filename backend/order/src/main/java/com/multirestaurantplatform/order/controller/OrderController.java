@@ -78,12 +78,36 @@ public class OrderController {
         return ResponseEntity.ok(responseDto);
     }
 
+    @PutMapping("/{orderId}/ready-for-pickup")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')")
+    @Operation(summary = "Mark order as ready for pickup",
+            description = "Allows a RESTAURANT_ADMIN to mark a 'PREPARING' order as 'READY_FOR_PICKUP'. " +
+                    "The admin must be associated with the restaurant of the order.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order status updated to READY_FOR_PICKUP",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in PREPARING state)"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions or is not admin of the order's restaurant"),
+                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
+            })
+    public ResponseEntity<OrderResponse> markAsReadyForPickup(
+            @Parameter(description = "ID of the order to be marked as ready for pickup") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+
+        LOGGER.info("API call to mark order ID: {} as READY_FOR_PICKUP by user: {}", orderId, userDetails.getUsername());
+        Order readyOrder = orderService.markAsReadyForPickup(orderId, userDetails);
+        OrderResponse responseDto = OrderResponse.fromEntity(readyOrder);
+        LOGGER.info("Order ID: {} marked as READY_FOR_PICKUP. Status: {}", responseDto.getId(), responseDto.getStatus());
+        return ResponseEntity.ok(responseDto);
+    }
+
     // TODO: Add other endpoints for order lifecycle:
     // - GET /api/v1/orders/{orderId} (for CUSTOMER, RESTAURANT_ADMIN, ADMIN)
     // - GET /api/v1/restaurant/{restaurantId}/orders (for RESTAURANT_ADMIN of that restaurant, ADMIN)
     // - GET /api/v1/users/{userId}/orders (for CUSTOMER themselves, or ADMIN)
     // - POST /api/v1/orders (from cart to create order - for CUSTOMER)
-    // - PUT /api/v1/orders/{orderId}/ready (for RESTAURANT_ADMIN)
+    // - PUT /api/v1/orders/{orderId}/out-for-delivery (for RESTAURANT_ADMIN or DELIVERY_PERSON)
     // - PUT /api/v1/orders/{orderId}/deliver (for RESTAURANT_ADMIN or DELIVERY_PERSON)
     // - PUT /api/v1/orders/{orderId}/cancel (for CUSTOMER under certain conditions, or RESTAURANT_ADMIN/ADMIN)
 }

@@ -73,6 +73,27 @@ public class OrderServiceImpl implements OrderService {
         return savedOrder;
     }
 
+    @Override
+    @Transactional
+    public Order markAsReadyForPickup(Long orderId, UserDetails restaurantAdminPrincipal) {
+        LOGGER.info("Attempting to mark order as READY_FOR_PICKUP with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
+
+        Order order = findOrderByIdOrThrow(orderId);
+        authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+
+        if (order.getStatus() != OrderStatus.PREPARING) {
+            LOGGER.warn("Marking order as READY_FOR_PICKUP failed: Order ID {} is not in PREPARING state. Current state: {}", orderId, order.getStatus());
+            throw new IllegalOrderStateException(
+                    "Order cannot be marked as ready for pickup. Expected status PREPARING, but was " + order.getStatus() + "."
+            );
+        }
+
+        order.setStatus(OrderStatus.READY_FOR_PICKUP); // This will also set 'readyAt' via Order entity's setStatus
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as READY_FOR_PICKUP successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
+        return savedOrder;
+    }
+
     /**
      * Helper method to fetch an order by ID or throw ResourceNotFoundException.
      * @param orderId The ID of the order.
