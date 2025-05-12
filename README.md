@@ -56,10 +56,13 @@ multi-restaurant-platform/
 │   └── docker-compose.dev.yml
 └── README.md                 # you are here
 ```
-# Project Title: Multi-Restaurant Online Ordering and Management System
-# Objective: Develop a self-hosted, full-featured multi-restaurant food ordering and management web application. Customers can browse restaurants and order online, while each restaurant has its own dashboard to manage menus, products, and orders. Payments are handled via Stripe Connect, and printing support is integrated for restaurants to receive real-time kitchen order slips.
+### Project Title: 
+Multi-Restaurant Online Ordering and Management System
 
-Roles:
+### Objective: 
+Develop a self-hosted, full-featured multi-restaurant food ordering and management web application. Customers can browse restaurants and order online, while each restaurant has its own dashboard to manage menus, products, and orders. Payments are handled via Stripe Connect, and printing support is integrated for restaurants to receive real-time kitchen order slips.
+
+### Roles:
 1. Customer
     * Browse restaurants and their menus
     * Add products to cart, choose pickup or delivery
