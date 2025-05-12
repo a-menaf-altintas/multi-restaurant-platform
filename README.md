@@ -56,7 +56,51 @@ multi-restaurant-platform/
 │   └── docker-compose.dev.yml
 └── README.md                 # you are here
 ```
+Project Title: Multi-Restaurant Online Ordering and Management System
+Objective: Develop a self-hosted, full-featured multi-restaurant food ordering and management web application. Customers can browse restaurants and order online, while each restaurant has its own dashboard to manage menus, products, and orders. Payments are handled via Stripe Connect, and printing support is integrated for restaurants to receive real-time kitchen order slips.
 
+Roles:
+1. Customer
+    * Browse restaurants and their menus
+    * Add products to cart, choose pickup or delivery
+    * Checkout and pay via Stripe
+    * Optionally register/login or order as guest
+2. Restaurant Admin
+    * Login to manage their own restaurant
+    * Add/edit menu categories and products (with images, prices, allergens, extras)
+    * View and update order statuses
+    * Set delivery zones/postal codes
+    * Configure printing
+    * Connect Stripe account for direct payouts
+3. Platform Admin (Super Admin)
+    * Login to global admin panel
+    * View and manage all restaurants and users
+    * Approve/suspend restaurant accounts
+    * Access analytics and reports
+    * Manage CMS pages (e.g., About, Terms)
+
+Core Features:
+* Multi-restaurant architecture with role-based access
+* Restaurant onboarding and login system
+* Menu builder: categories, products, extras, allergens
+* Real-time order processing and management
+* Printing integration (browser-based or PrintNode-ready)
+* Stripe Connect integration (account creation, payout routing, platform fee)
+* Public site for customers: browse, add to cart, checkout
+* Admin dashboard for restaurants and platform admin
+* CMS section to edit static pages (optional)
+* Docker-based deployment (Docker Compose with NGINX, PostgreSQL, app)
+* Mobile-friendly responsive design
+* OpenAPI/Swagger documentation for all backend APIs
+
+Technology Stack:
+* Frontend: Angular (TypeScript)
+* Backend: Java (Spring Boot)
+* Database: PostgreSQL (with JPA/Hibernate)
+* Printing: Browser-based printing (phase 1), PrintNode-ready (phase 2)
+* API Docs: Swagger (SpringDoc OpenAPI)
+* Deployment: Docker + NGINX + Spring Boot JAR
+* Payments: Stripe Connect Standard (with platform fees)
 ---
 
 ## 4  Development Philosophy
