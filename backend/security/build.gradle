@@ -31,11 +31,15 @@ dependencies {
     // The version will be managed by Spring Boot's dependency management.
     compileOnly 'jakarta.servlet:jakarta.servlet-api'
 
-
     // Lombok is inherited from the root build.gradle's subprojects block
 
     // --- JWT Dependencies ---
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // --- Test Dependencies ---
+    // Add JUnit 5 and Spring Test dependencies for testing JWT services
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
