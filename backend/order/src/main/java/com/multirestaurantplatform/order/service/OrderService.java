@@ -11,13 +11,8 @@ public interface OrderService {
      * This action is typically performed by a restaurant administrator.
      *
      * @param orderId The ID of the order to be confirmed.
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin,
-     * used for authorization checks to ensure the admin
-     * is associated with the order's restaurant.
+     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
      * @return The updated Order entity with status CONFIRMED.
-     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
-     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in PLACED state.
-     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to confirm this order.
      */
     Order confirmOrder(Long orderId, UserDetails restaurantAdminPrincipal);
 
@@ -26,12 +21,8 @@ public interface OrderService {
      * This action is typically performed by a restaurant administrator.
      *
      * @param orderId The ID of the order to be marked as preparing.
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin,
-     * used for authorization checks.
+     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
      * @return The updated Order entity with status PREPARING.
-     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
-     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in CONFIRMED state.
-     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
      */
     Order markAsPreparing(Long orderId, UserDetails restaurantAdminPrincipal);
 
@@ -40,12 +31,8 @@ public interface OrderService {
      * This action is typically performed by a restaurant administrator.
      *
      * @param orderId The ID of the order to be marked as ready for pickup.
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin,
-     * used for authorization checks.
+     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
      * @return The updated Order entity with status READY_FOR_PICKUP.
-     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
-     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in PREPARING state.
-     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
      */
     Order markAsReadyForPickup(Long orderId, UserDetails restaurantAdminPrincipal);
 
@@ -54,18 +41,27 @@ public interface OrderService {
      * This action is typically performed by a restaurant administrator.
      *
      * @param orderId The ID of the order to be marked as picked up (delivered).
-     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin,
-     * used for authorization checks.
+     * @param restaurantAdminPrincipal The UserDetails of the authenticated restaurant admin.
      * @return The updated Order entity with status DELIVERED.
-     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
-     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in READY_FOR_PICKUP state.
-     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
      */
     Order markAsPickedUp(Long orderId, UserDetails restaurantAdminPrincipal);
 
+    /**
+     * Marks an order that is ready (e.g. READY_FOR_PICKUP) as out for delivery.
+     * This action is typically performed by a restaurant administrator or a delivery manager.
+     *
+     * @param orderId The ID of the order to be marked as out for delivery.
+     * @param principal The UserDetails of the authenticated user performing the action.
+     * @return The updated Order entity with status OUT_FOR_DELIVERY.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the order is not found.
+     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if the order is not in a state
+     * from which it can be marked as out for delivery (e.g., not READY_FOR_PICKUP).
+     * @throws org.springframework.security.access.AccessDeniedException if the user is not authorized to update this order.
+     */
+    Order markAsOutForDelivery(Long orderId, UserDetails principal);
+
 
     // Future methods for order flow:
-    // Order markAsOutForDelivery(Long orderId, UserDetails restaurantAdminPrincipal);
     // Order markAsDelivered(Long orderId, UserDetails principal); // Could be overloaded for delivery scenarios
     // Order cancelOrder(Long orderId, UserDetails principal); // User or admin
 }

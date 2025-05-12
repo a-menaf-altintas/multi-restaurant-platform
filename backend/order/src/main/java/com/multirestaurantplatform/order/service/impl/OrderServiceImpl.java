@@ -109,11 +109,39 @@ public class OrderServiceImpl implements OrderService {
             );
         }
 
-        order.setStatus(OrderStatus.DELIVERED); // This will also set 'deliveredAt' via Order entity's setStatus
+        order.setStatus(OrderStatus.DELIVERED);
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} marked as DELIVERED (picked up) successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
         return savedOrder;
     }
+
+    @Override
+    @Transactional
+    public Order markAsOutForDelivery(Long orderId, UserDetails principal) {
+        LOGGER.info("Attempting to mark order as OUT_FOR_DELIVERY with ID: {} by user: {}", orderId, principal.getUsername());
+
+        Order order = findOrderByIdOrThrow(orderId);
+        // For now, assume RESTAURANT_ADMIN can mark as out for delivery.
+        // Later, this might involve a DELIVERY_PERSON role or different authorization.
+        authorizeRestaurantAdminForOrder(order, principal);
+
+        // An order should typically be READY_FOR_PICKUP before it goes OUT_FOR_DELIVERY.
+        // Or, if you allow direct from PREPARING to OUT_FOR_DELIVERY, adjust this logic.
+        if (order.getStatus() != OrderStatus.READY_FOR_PICKUP && order.getStatus() != OrderStatus.PREPARING) {
+            LOGGER.warn("Marking order as OUT_FOR_DELIVERY failed: Order ID {} is not in READY_FOR_PICKUP or PREPARING state. Current state: {}", orderId, order.getStatus());
+            throw new IllegalOrderStateException(
+                    "Order cannot be marked as out for delivery. Expected status READY_FOR_PICKUP or PREPARING, but was " + order.getStatus() + "."
+            );
+        }
+        // If moving from PREPARING, ensure readyAt is also set if not already.
+        // The Order.setStatus() logic for OUT_FOR_DELIVERY handles setting readyAt if it's null.
+
+        order.setStatus(OrderStatus.OUT_FOR_DELIVERY); // This will set 'outForDeliveryAt' and potentially 'readyAt'
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} marked as OUT_FOR_DELIVERY successfully by user: {}", savedOrder.getId(), principal.getUsername());
+        return savedOrder;
+    }
+
 
     /**
      * Helper method to fetch an order by ID or throw ResourceNotFoundException.
@@ -131,18 +159,18 @@ public class OrderServiceImpl implements OrderService {
     /**
      * Helper method to authorize if the restaurant admin principal can manage the given order.
      * @param order The order to check against.
-     * @param restaurantAdminPrincipal The principal of the restaurant admin.
+     * @param principal The principal of the user (expected to be a restaurant admin for now).
      * @throws ResourceNotFoundException if related restaurant or user not found.
      * @throws AccessDeniedException if the user is not authorized.
      */
-    private void authorizeRestaurantAdminForOrder(Order order, UserDetails restaurantAdminPrincipal) {
+    private void authorizeRestaurantAdminForOrder(Order order, UserDetails principal) {
         Long orderRestaurantId = order.getRestaurantId();
         if (orderRestaurantId == null) {
             LOGGER.error("Authorization failed: Order ID {} is not associated with any restaurant.", order.getId());
             throw new IllegalStateException("Order " + order.getId() + " has no associated restaurant ID.");
         }
 
-        String principalUsername = restaurantAdminPrincipal.getUsername();
+        String principalUsername = principal.getUsername();
         User adminUser = userRepository.findByUsername(principalUsername)
                 .orElseThrow(() -> {
                     LOGGER.warn("Authorization failed: User {} (from principal) not found in repository.", principalUsername);
@@ -155,16 +183,23 @@ public class OrderServiceImpl implements OrderService {
                     return new ResourceNotFoundException("Restaurant not found with ID: " + orderRestaurantId + " for order " + order.getId());
                 });
 
+        // Check if the user is an admin for this restaurant.
+        // This logic assumes the principal is a RESTAURANT_ADMIN.
+        // If other roles (like a global ADMIN or specific DELIVERY_PERSON) can perform this,
+        // the authorization logic here or the calling method's @PreAuthorize would need adjustment.
         boolean isAuthorized = restaurant.getRestaurantAdmins().stream()
                 .anyMatch(admin -> admin.getId().equals(adminUser.getId()));
 
         if (!isAuthorized) {
+            // A global ADMIN might also be allowed to perform this.
+            // Consider checking for ADMIN role here if that's a requirement.
+            // For now, strict to restaurant admin.
             LOGGER.warn("Authorization failed: User {} (ID: {}) is not an admin for restaurant ID {} (Order ID: {})",
                     principalUsername, adminUser.getId(), orderRestaurantId, order.getId());
             throw new AccessDeniedException("User " + principalUsername +
                     " is not authorized to manage orders for restaurant ID " + orderRestaurantId);
         }
-        LOGGER.debug("User {} is authorized admin for restaurant ID {} of order ID {}",
+        LOGGER.debug("User {} is authorized for restaurant ID {} of order ID {}",
                 principalUsername, orderRestaurantId, order.getId());
     }
 }

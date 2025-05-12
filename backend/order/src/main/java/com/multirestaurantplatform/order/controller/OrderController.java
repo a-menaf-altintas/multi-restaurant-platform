@@ -46,12 +46,9 @@ public class OrderController {
     public ResponseEntity<OrderResponse> confirmOrder(
             @Parameter(description = "ID of the order to be confirmed") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-
         LOGGER.info("API call to confirm order ID: {} by user: {}", orderId, userDetails.getUsername());
         Order confirmedOrder = orderService.confirmOrder(orderId, userDetails);
-        OrderResponse responseDto = OrderResponse.fromEntity(confirmedOrder);
-        LOGGER.info("Order ID: {} confirmed. Status: {}", responseDto.getId(), responseDto.getStatus());
-        return ResponseEntity.ok(responseDto);
+        return ResponseEntity.ok(OrderResponse.fromEntity(confirmedOrder));
     }
 
     @PutMapping("/{orderId}/prepare")
@@ -70,12 +67,9 @@ public class OrderController {
     public ResponseEntity<OrderResponse> markAsPreparing(
             @Parameter(description = "ID of the order to be marked as preparing") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-
         LOGGER.info("API call to mark order ID: {} as PREPARING by user: {}", orderId, userDetails.getUsername());
         Order preparingOrder = orderService.markAsPreparing(orderId, userDetails);
-        OrderResponse responseDto = OrderResponse.fromEntity(preparingOrder);
-        LOGGER.info("Order ID: {} marked as PREPARING. Status: {}", responseDto.getId(), responseDto.getStatus());
-        return ResponseEntity.ok(responseDto);
+        return ResponseEntity.ok(OrderResponse.fromEntity(preparingOrder));
     }
 
     @PutMapping("/{orderId}/ready-for-pickup")
@@ -94,12 +88,9 @@ public class OrderController {
     public ResponseEntity<OrderResponse> markAsReadyForPickup(
             @Parameter(description = "ID of the order to be marked as ready for pickup") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-
         LOGGER.info("API call to mark order ID: {} as READY_FOR_PICKUP by user: {}", orderId, userDetails.getUsername());
         Order readyOrder = orderService.markAsReadyForPickup(orderId, userDetails);
-        OrderResponse responseDto = OrderResponse.fromEntity(readyOrder);
-        LOGGER.info("Order ID: {} marked as READY_FOR_PICKUP. Status: {}", responseDto.getId(), responseDto.getStatus());
-        return ResponseEntity.ok(responseDto);
+        return ResponseEntity.ok(OrderResponse.fromEntity(readyOrder));
     }
 
     @PutMapping("/{orderId}/picked-up")
@@ -118,19 +109,40 @@ public class OrderController {
     public ResponseEntity<OrderResponse> markAsPickedUp(
             @Parameter(description = "ID of the order to be marked as picked up") @PathVariable Long orderId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
-
         LOGGER.info("API call to mark order ID: {} as DELIVERED (picked up) by user: {}", orderId, userDetails.getUsername());
         Order pickedUpOrder = orderService.markAsPickedUp(orderId, userDetails);
-        OrderResponse responseDto = OrderResponse.fromEntity(pickedUpOrder);
-        LOGGER.info("Order ID: {} marked as DELIVERED (picked up). Status: {}", responseDto.getId(), responseDto.getStatus());
+        return ResponseEntity.ok(OrderResponse.fromEntity(pickedUpOrder));
+    }
+
+    @PutMapping("/{orderId}/out-for-delivery")
+    @PreAuthorize("hasRole('RESTAURANT_ADMIN')") // Initially, allow RESTAURANT_ADMIN. Could be extended to DELIVERY_PERSON role later.
+    @Operation(summary = "Mark order as out for delivery",
+            description = "Allows a RESTAURANT_ADMIN to mark an order (typically 'READY_FOR_PICKUP') as 'OUT_FOR_DELIVERY'. " +
+                    "The admin must be associated with the restaurant of the order.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order status updated to OUT_FOR_DELIVERY",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid request (e.g., order not in READY_FOR_PICKUP or PREPARING state)"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions or is not admin of the order's restaurant"),
+                    @ApiResponse(responseCode = "404", description = "Order or associated Restaurant not found")
+            })
+    public ResponseEntity<OrderResponse> markAsOutForDelivery(
+            @Parameter(description = "ID of the order to be marked as out for delivery") @PathVariable Long orderId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+
+        LOGGER.info("API call to mark order ID: {} as OUT_FOR_DELIVERY by user: {}", orderId, userDetails.getUsername());
+        Order outForDeliveryOrder = orderService.markAsOutForDelivery(orderId, userDetails);
+        OrderResponse responseDto = OrderResponse.fromEntity(outForDeliveryOrder);
+        LOGGER.info("Order ID: {} marked as OUT_FOR_DELIVERY. Status: {}", responseDto.getId(), responseDto.getStatus());
         return ResponseEntity.ok(responseDto);
     }
 
     // TODO: Add other endpoints for order lifecycle:
-    // - GET /api/v1/orders/{orderId} (for CUSTOMER, RESTAURANT_ADMIN, ADMIN)
-    // - GET /api/v1/restaurant/{restaurantId}/orders (for RESTAURANT_ADMIN of that restaurant, ADMIN)
-    // - GET /api/v1/users/{userId}/orders (for CUSTOMER themselves, or ADMIN)
-    // - POST /api/v1/orders (from cart to create order - for CUSTOMER)
-    // - PUT /api/v1/orders/{orderId}/out-for-delivery (for RESTAURANT_ADMIN or DELIVERY_PERSON)
-    // - PUT /api/v1/orders/{orderId}/cancel (for CUSTOMER under certain conditions, or RESTAURANT_ADMIN/ADMIN)
+    // - GET /api/v1/orders/{orderId}
+    // - GET /api/v1/restaurant/{restaurantId}/orders
+    // - GET /api/v1/users/{userId}/orders
+    // - POST /api/v1/orders
+    // - PUT /api/v1/orders/{orderId}/delivered (for delivery scenario completion)
+    // - PUT /api/v1/orders/{orderId}/cancel
 }

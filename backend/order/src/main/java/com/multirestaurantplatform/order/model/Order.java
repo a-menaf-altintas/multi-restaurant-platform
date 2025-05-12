@@ -1,3 +1,4 @@
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/model/Order.java
 package com.multirestaurantplatform.order.model;
 
 import jakarta.persistence.*;
@@ -65,7 +66,8 @@ public class Order {
     private LocalDateTime placedAt;
     private LocalDateTime confirmedAt;
     private LocalDateTime preparingAt;
-    private LocalDateTime readyAt; // Ready for pickup or out for delivery
+    private LocalDateTime readyAt; // Ready for pickup or before out for delivery
+    private LocalDateTime outForDeliveryAt; // New field
     private LocalDateTime deliveredAt;
     private LocalDateTime cancelledAt;
 
@@ -73,9 +75,7 @@ public class Order {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == OrderStatus.PLACED) {
-            placedAt = LocalDateTime.now();
-        }
+        // Note: placedAt is now set explicitly when status becomes PLACED in setStatus
     }
 
     @PreUpdate
@@ -120,19 +120,25 @@ public class Order {
     public void setOrderItems(List<OrderItem> orderItems) {
         this.orderItems = orderItems;
         // Ensure bidirectional consistency
-        for (OrderItem item : orderItems) {
-            item.setOrder(this);
+        if (orderItems != null) {
+            for (OrderItem item : orderItems) {
+                item.setOrder(this);
+            }
         }
     }
 
     public void addOrderItem(OrderItem item) {
-        orderItems.add(item);
-        item.setOrder(this);
+        if (item != null) {
+            orderItems.add(item);
+            item.setOrder(this);
+        }
     }
 
     public void removeOrderItem(OrderItem item) {
-        orderItems.remove(item);
-        item.setOrder(null);
+        if (item != null) {
+            orderItems.remove(item);
+            item.setOrder(null);
+        }
     }
 
     public OrderStatus getStatus() {
@@ -153,18 +159,23 @@ public class Order {
             case PREPARING:
                 this.preparingAt = now;
                 break;
-            case READY_FOR_PICKUP: // or OUT_FOR_DELIVERY can share this
+            case READY_FOR_PICKUP:
+                this.readyAt = now; // Common 'ready' timestamp
+                break;
             case OUT_FOR_DELIVERY:
-                this.readyAt = now;
+                this.readyAt = (this.readyAt == null && this.preparingAt != null) ? now : this.readyAt; // If not already set as ready, mark as ready now
+                this.outForDeliveryAt = now; // Specific timestamp for going out for delivery
                 break;
             case DELIVERED:
                 this.deliveredAt = now;
                 break;
             case CANCELLED_BY_USER:
             case CANCELLED_BY_RESTAURANT:
-                this.cancelledAt = now;
+            case FAILED: // Added FAILED case based on your OrderStatus enum
+                this.cancelledAt = now; // Or a specific 'failedAt' if needed
                 break;
             default:
+                // Potentially log an unhandled status or do nothing
                 break;
         }
     }
@@ -287,6 +298,14 @@ public class Order {
 
     public void setReadyAt(LocalDateTime readyAt) {
         this.readyAt = readyAt;
+    }
+
+    public LocalDateTime getOutForDeliveryAt() {
+        return outForDeliveryAt;
+    }
+
+    public void setOutForDeliveryAt(LocalDateTime outForDeliveryAt) {
+        this.outForDeliveryAt = outForDeliveryAt;
     }
 
     public LocalDateTime getDeliveredAt() {

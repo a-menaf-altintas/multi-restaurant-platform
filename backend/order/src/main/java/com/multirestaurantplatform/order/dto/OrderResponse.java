@@ -1,7 +1,8 @@
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderResponse.java
 package com.multirestaurantplatform.order.dto;
 
 import com.multirestaurantplatform.order.model.Order;
-import com.multirestaurantplatform.order.model.OrderStatus; // Ensure correct import from your existing enum
+import com.multirestaurantplatform.order.model.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,7 +16,7 @@ import java.util.stream.Collectors;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
+// Update AllArgsConstructor or add a new constructor if you prefer manual control
 public class OrderResponse {
 
     private Long id;
@@ -34,9 +35,40 @@ public class OrderResponse {
     private LocalDateTime confirmedAt;
     private LocalDateTime preparingAt;
     private LocalDateTime readyAt;
+    private LocalDateTime outForDeliveryAt; // New field
     private LocalDateTime deliveredAt;
     private LocalDateTime cancelledAt;
-    private List<OrderItemResponse> orderItems; // You'll need an OrderItemResponse DTO too
+    private List<OrderItemResponse> orderItems;
+
+    // Manual constructor to include the new field
+    public OrderResponse(Long id, Long customerId, Long restaurantId, OrderStatus status, BigDecimal totalPrice,
+                         String deliveryAddressLine1, String deliveryCity, String deliveryPostalCode,
+                         String customerContactNumber, String specialInstructions, LocalDateTime createdAt,
+                         LocalDateTime updatedAt, LocalDateTime placedAt, LocalDateTime confirmedAt,
+                         LocalDateTime preparingAt, LocalDateTime readyAt, LocalDateTime outForDeliveryAt,
+                         LocalDateTime deliveredAt, LocalDateTime cancelledAt, List<OrderItemResponse> orderItems) {
+        this.id = id;
+        this.customerId = customerId;
+        this.restaurantId = restaurantId;
+        this.status = status;
+        this.totalPrice = totalPrice;
+        this.deliveryAddressLine1 = deliveryAddressLine1;
+        this.deliveryCity = deliveryCity;
+        this.deliveryPostalCode = deliveryPostalCode;
+        this.customerContactNumber = customerContactNumber;
+        this.specialInstructions = specialInstructions;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.placedAt = placedAt;
+        this.confirmedAt = confirmedAt;
+        this.preparingAt = preparingAt;
+        this.readyAt = readyAt;
+        this.outForDeliveryAt = outForDeliveryAt;
+        this.deliveredAt = deliveredAt;
+        this.cancelledAt = cancelledAt;
+        this.orderItems = orderItems;
+    }
+
 
     // Static factory method to convert Order entity to OrderResponse DTO
     public static OrderResponse fromEntity(Order order) {
@@ -64,6 +96,7 @@ public class OrderResponse {
                 order.getConfirmedAt(),
                 order.getPreparingAt(),
                 order.getReadyAt(),
+                order.getOutForDeliveryAt(), // Include new field
                 order.getDeliveredAt(),
                 order.getCancelledAt(),
                 itemResponses
