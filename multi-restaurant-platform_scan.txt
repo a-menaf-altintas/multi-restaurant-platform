@@ -799,6 +799,34 @@ public class OrderResponse {
         );
     }
 }
+=== backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderStatisticsResponseDto.java ===
+package com.multirestaurantplatform.order.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Map;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class OrderStatisticsResponseDto {
+    private Long totalOrders;
+    private BigDecimal totalSpent;
+    private Map<String, Long> ordersByStatus;
+    private BigDecimal averageOrderAmount;
+    private LocalDateTime firstOrderDate;
+    private LocalDateTime lastOrderDate;
+    private Long restaurantCount; // Number of different restaurants ordered from
+    private String mostOrderedRestaurantName;
+    private Long mostOrderedRestaurantId;
+    private Long mostOrderedRestaurantOrderCount;
+}
 === backend/order/src/main/java/com/multirestaurantplatform/order/dto/UpdateCartItemRequest.java ===
 package com.multirestaurantplatform.order.dto;
 
@@ -830,8 +858,18 @@ public class UpdateCartItemRequest {
 package com.multirestaurantplatform.order.repository;
 
 import com.multirestaurantplatform.order.model.Order;
+import com.multirestaurantplatform.order.model.OrderStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import java.time.LocalDateTime;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.math.BigDecimal;
+import java.util.List;
+
+import java.util.List;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
@@ -839,6 +877,128 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // For example:
     // List<Order> findByCustomerIdAndStatus(Long customerId, OrderStatus status);
     // List<Order> findByRestaurantIdAndStatus(Long restaurantId, OrderStatus status);
+
+    /**
+     * Finds all orders for a specific customer.
+     *
+     * @param customerId The ID of the customer whose orders to find.
+     * @return A list of orders for the specified customer.
+     */
+    List<Order> findByCustomerId(Long customerId);
+    /**
+     * Finds all orders for a specific customer with pagination and sorting.
+     *
+     * @param customerId The ID of the customer whose orders to find.
+     * @param pageable The pagination and sorting information.
+     * @return A page of orders for the specified customer.
+     */
+    Page<Order> findByCustomerId(Long customerId, Pageable pageable);
+
+    /**
+     * Finds orders for a customer with optional filtering by status and date range.
+     *
+     * @param customerId The ID of the customer
+     * @param status Optional order status filter
+     * @param startDate Optional start date filter (inclusive)
+     * @param endDate Optional end date filter (inclusive)
+     * @param pageable Pagination and sorting information
+     * @return A page of filtered orders
+     */
+    Page<Order> findByCustomerIdAndStatusAndCreatedAtBetween(
+            Long customerId,
+            OrderStatus status,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable);
+
+    /**
+     * Finds orders for a customer with optional filtering by date range.
+     *
+     * @param customerId The ID of the customer
+     * @param startDate Optional start date filter (inclusive)
+     * @param endDate Optional end date filter (inclusive)
+     * @param pageable Pagination and sorting information
+     * @return A page of filtered orders
+     */
+    Page<Order> findByCustomerIdAndCreatedAtBetween(
+            Long customerId,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable);
+
+    /**
+     * Finds orders for a customer with optional filtering by status.
+     *
+     * @param customerId The ID of the customer
+     * @param status Order status filter
+     * @param pageable Pagination and sorting information
+     * @return A page of filtered orders
+     */
+    Page<Order> findByCustomerIdAndStatus(
+            Long customerId,
+            OrderStatus status,
+            Pageable pageable);
+    /**
+     * Count the total number of orders for a customer.
+     *
+     * @param customerId The customer ID
+     * @return The total count of orders
+     */
+    Long countByCustomerId(Long customerId);
+
+    /**
+     * Find the sum of total prices for all orders of a customer.
+     *
+     * @param customerId The customer ID
+     * @return The sum of all order total prices
+     */
+    @Query("SELECT SUM(o.totalPrice) FROM Order o WHERE o.customerId = :customerId")
+    BigDecimal sumTotalPriceByCustomerId(@Param("customerId") Long customerId);
+
+    /**
+     * Count orders by status for a specific customer.
+     *
+     * @param customerId The customer ID
+     * @return Map of status to count
+     */
+    @Query("SELECT o.status as status, COUNT(o) as count FROM Order o WHERE o.customerId = :customerId GROUP BY o.status")
+    List<Object[]> countOrdersByStatusForCustomer(@Param("customerId") Long customerId);
+
+    /**
+     * Find the earliest order date for a customer.
+     *
+     * @param customerId The customer ID
+     * @return The date of the first order
+     */
+    @Query("SELECT MIN(o.createdAt) FROM Order o WHERE o.customerId = :customerId")
+    LocalDateTime findFirstOrderDateByCustomerId(@Param("customerId") Long customerId);
+
+    /**
+     * Find the latest order date for a customer.
+     *
+     * @param customerId The customer ID
+     * @return The date of the last order
+     */
+    @Query("SELECT MAX(o.createdAt) FROM Order o WHERE o.customerId = :customerId")
+    LocalDateTime findLastOrderDateByCustomerId(@Param("customerId") Long customerId);
+
+    /**
+     * Count distinct restaurants ordered from by a customer.
+     *
+     * @param customerId The customer ID
+     * @return The count of unique restaurants
+     */
+    @Query("SELECT COUNT(DISTINCT o.restaurantId) FROM Order o WHERE o.customerId = :customerId")
+    Long countDistinctRestaurantsByCustomerId(@Param("customerId") Long customerId);
+
+    /**
+     * Find the most frequently ordered from restaurant for a customer.
+     *
+     * @param customerId The customer ID
+     * @return Object array with restaurantId, count
+     */
+    @Query("SELECT o.restaurantId, COUNT(o) as count FROM Order o WHERE o.customerId = :customerId GROUP BY o.restaurantId ORDER BY count DESC")
+    List<Object[]> findMostOrderedRestaurantByCustomerId(@Param("customerId") Long customerId);
 }
 === backend/order/src/main/java/com/multirestaurantplatform/order/controller/CartController.java ===
 package com.multirestaurantplatform.order.controller;
@@ -930,9 +1090,11 @@ public class CartController {
 // File: backend/order/src/main/java/com/multirestaurantplatform/order/controller/OrderController.java
 package com.multirestaurantplatform.order.controller;
 
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
 import com.multirestaurantplatform.order.dto.OrderResponse;
 import com.multirestaurantplatform.order.model.Order;
 import com.multirestaurantplatform.order.service.OrderService;
+import com.multirestaurantplatform.security.model.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -949,6 +1111,19 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.stream.Collectors;
+import com.multirestaurantplatform.security.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.time.LocalDateTime;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.multirestaurantplatform.order.model.OrderStatus;
+import com.multirestaurantplatform.common.exception.BadRequestException;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
 
 @RestController
 @RequestMapping("/api/v1") // Adjusted base path for user-specific cart endpoint
@@ -959,6 +1134,7 @@ public class OrderController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
     private final OrderService orderService;
+    private final UserRepository userRepository;
 
     // Endpoint to place an order from a user's cart
     @PostMapping("/users/{userId}/orders/place-from-cart")
@@ -1055,6 +1231,194 @@ public class OrderController {
         LOGGER.info("API call to complete delivery for order ID: {} by user: {}", orderId, userDetails.getUsername());
         Order deliveredOrder = orderService.completeDelivery(orderId, userDetails);
         return ResponseEntity.ok(OrderResponse.fromEntity(deliveredOrder));
+    }
+
+    @GetMapping("/users/{userId}/orders")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get order history for a user",
+            description = "Retrieves all orders placed by the specified user. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order history retrieved successfully"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these orders"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<List<OrderResponse>> getOrderHistory(
+            @Parameter(description = "Username of the user whose order history is to be retrieved") @PathVariable String userId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails principal) {
+        LOGGER.info("API call to get order history for user: {} by principal: {}", userId, principal.getUsername());
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Get the orders for this user
+        List<Order> orders = orderService.findOrdersByCustomerId(user.getId());
+
+        // Convert entities to DTOs
+        List<OrderResponse> responseList = orders.stream()
+                .map(OrderResponse::fromEntity)
+                .collect(Collectors.toList());
+
+        LOGGER.info("Retrieved {} orders for user: {}", responseList.size(), userId);
+        return ResponseEntity.ok(responseList);
+    }
+
+    @GetMapping("/users/{userId}/orders/paged")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get paginated order history for a user",
+            description = "Retrieves paginated orders placed by the specified user. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Paginated order history retrieved successfully"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these orders"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<Page<OrderResponse>> getPaginatedOrderHistory(
+            @Parameter(description = "Username of the user whose order history is to be retrieved") @PathVariable String userId,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
+            @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction (ASC or DESC)") @RequestParam(defaultValue = "DESC") String direction,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails principal) {
+        LOGGER.info("API call to get paginated order history for user: {} by principal: {}, page: {}, size: {}",
+                userId, principal.getUsername(), page, size);
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Create Pageable object with sorting
+        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+
+        // Get the paginated orders for this user
+        Page<Order> ordersPage = orderService.findOrdersByCustomerId(user.getId(), pageable);
+
+        // Convert entities to DTOs
+        Page<OrderResponse> responsePage = ordersPage.map(OrderResponse::fromEntity);
+
+        LOGGER.info("Retrieved page {} of {} for user: {}, total elements: {}",
+                responsePage.getNumber(), responsePage.getTotalPages(),
+                userId, responsePage.getTotalElements());
+
+        return ResponseEntity.ok(responsePage);
+    }
+
+    @GetMapping("/users/{userId}/orders/filtered")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get filtered order history for a user",
+            description = "Retrieves orders placed by the specified user with optional filtering by status and date range. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Filtered order history retrieved successfully"),
+                    @ApiResponse(responseCode = "400", description = "Invalid filter parameters"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these orders"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<Page<OrderResponse>> getFilteredOrderHistory(
+            @Parameter(description = "Username of the user whose order history is to be retrieved")
+            @PathVariable String userId,
+
+            @Parameter(description = "Filter by order status (e.g., PLACED, CONFIRMED, DELIVERED)")
+            @RequestParam(required = false) OrderStatus status,
+
+            @Parameter(description = "Filter by start date (format: yyyy-MM-dd'T'HH:mm:ss)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+
+            @Parameter(description = "Filter by end date (format: yyyy-MM-dd'T'HH:mm:ss)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+
+            @Parameter(description = "Page number (0-based)")
+            @RequestParam(defaultValue = "0") int page,
+
+            @Parameter(description = "Page size")
+            @RequestParam(defaultValue = "10") int size,
+
+            @Parameter(description = "Sort field")
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+
+            @Parameter(description = "Sort direction (ASC or DESC)")
+            @RequestParam(defaultValue = "DESC") String direction,
+
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserDetails principal) {
+
+        LOGGER.info("API call to get filtered order history for user: {} by principal: {}, status: {}, startDate: {}, endDate: {}, page: {}, size: {}",
+                userId, principal.getUsername(), status, startDate, endDate, page, size);
+
+        // Validate date range if both dates are provided
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new BadRequestException("Start date cannot be after end date");
+        }
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Create Pageable object with sorting
+        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+
+        // Get the filtered orders for this user
+        Page<Order> ordersPage = orderService.findFilteredOrdersByCustomerId(
+                user.getId(), status, startDate, endDate, pageable);
+
+        // Convert entities to DTOs
+        Page<OrderResponse> responsePage = ordersPage.map(OrderResponse::fromEntity);
+
+        LOGGER.info("Retrieved filtered page {} of {} for user: {}, total elements: {}",
+                responsePage.getNumber(), responsePage.getTotalPages(),
+                userId, responsePage.getTotalElements());
+
+        return ResponseEntity.ok(responsePage);
+    }
+
+    @GetMapping("/users/{userId}/orders/statistics")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get order statistics for a user",
+            description = "Retrieves comprehensive order statistics for the specified user. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order statistics retrieved successfully"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these statistics"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<OrderStatisticsResponseDto> getOrderStatistics(
+            @Parameter(description = "Username of the user whose order statistics are to be retrieved")
+            @PathVariable String userId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserDetails principal) {
+
+        LOGGER.info("API call to get order statistics for user: {} by principal: {}",
+                userId, principal.getUsername());
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Get the order statistics for this user
+        OrderStatisticsResponseDto statistics = orderService.getOrderStatisticsForCustomer(user.getId());
+
+        LOGGER.info("Retrieved order statistics for user: {}, total orders: {}", userId, statistics.getTotalOrders());
+
+        return ResponseEntity.ok(statistics);
     }
 }
 === backend/order/src/main/java/com/multirestaurantplatform/order/model/Order.java ===
@@ -1942,6 +2306,13 @@ package com.multirestaurantplatform.order.service;
 
 import com.multirestaurantplatform.order.model.Order;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import java.time.LocalDateTime;
+import com.multirestaurantplatform.order.model.OrderStatus;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
+
+import java.util.List;
 
 public interface OrderService {
 
@@ -1967,6 +2338,47 @@ public interface OrderService {
     Order markAsPickedUp(Long orderId, UserDetails restaurantAdminPrincipal);
     Order markAsOutForDelivery(Long orderId, UserDetails principal);
     Order completeDelivery(Long orderId, UserDetails principal);
+
+    /**
+     * Retrieves all orders for a specific customer.
+     *
+     * @param customerId The ID of the customer whose orders are being retrieved.
+     * @return A list of Order entities for the specified customer.
+     */
+    List<Order> findOrdersByCustomerId(Long customerId);
+
+    /**
+     * Retrieves all orders for a specific customer with pagination and sorting.
+     *
+     * @param customerId The ID of the customer whose orders are being retrieved.
+     * @param pageable The pagination and sorting information.
+     * @return A page of Order entities for the specified customer.
+     */
+    Page<Order> findOrdersByCustomerId(Long customerId, Pageable pageable);
+
+    /**
+     * Retrieves filtered orders for a specific customer with pagination.
+     *
+     * @param customerId The ID of the customer
+     * @param status Optional order status filter (can be null)
+     * @param startDate Optional start date filter (can be null)
+     * @param endDate Optional end date filter (can be null)
+     * @param pageable Pagination and sorting information
+     * @return A page of filtered orders
+     */
+    Page<Order> findFilteredOrdersByCustomerId(
+            Long customerId,
+            OrderStatus status,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable);
+    /**
+     * Generates order statistics for a specific customer.
+     *
+     * @param customerId The ID of the customer
+     * @return A DTO containing various order statistics
+     */
+    OrderStatisticsResponseDto getOrderStatisticsForCustomer(Long customerId);
 }
 === backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/OrderServiceImpl.java ===
 // File: backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/OrderServiceImpl.java
@@ -1987,6 +2399,8 @@ import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
 import com.multirestaurantplatform.security.model.Role; // Import Role
 import com.multirestaurantplatform.security.model.User;
 import com.multirestaurantplatform.security.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -2003,6 +2417,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
 
 @Service
 @RequiredArgsConstructor
@@ -2173,6 +2594,120 @@ public class OrderServiceImpl implements OrderService {
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} marked as DELIVERED (delivery completed) successfully by user: {}", savedOrder.getId(), principal.getUsername());
         return savedOrder;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> findOrdersByCustomerId(Long customerId) {
+        LOGGER.info("Retrieving orders for customer ID: {}", customerId);
+        return orderRepository.findByCustomerId(customerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> findOrdersByCustomerId(Long customerId, Pageable pageable) {
+        LOGGER.info("Retrieving paginated orders for customer ID: {}, page: {}, size: {}",
+                customerId, pageable.getPageNumber(), pageable.getPageSize());
+        return orderRepository.findByCustomerId(customerId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> findFilteredOrdersByCustomerId(
+            Long customerId,
+            OrderStatus status,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable) {
+
+        LOGGER.info("Retrieving filtered orders for customer ID: {}, status: {}, startDate: {}, endDate: {}, page: {}, size: {}",
+                customerId, status, startDate, endDate, pageable.getPageNumber(), pageable.getPageSize());
+
+        // If no date filters provided, use min/max values
+        LocalDateTime effectiveStartDate = startDate != null ? startDate : LocalDateTime.MIN;
+        LocalDateTime effectiveEndDate = endDate != null ? endDate : LocalDateTime.now();
+
+        // Choose appropriate repository method based on which filters are provided
+        if (status != null) {
+            return orderRepository.findByCustomerIdAndStatusAndCreatedAtBetween(
+                    customerId, status, effectiveStartDate, effectiveEndDate, pageable);
+        } else {
+            return orderRepository.findByCustomerIdAndCreatedAtBetween(
+                    customerId, effectiveStartDate, effectiveEndDate, pageable);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderStatisticsResponseDto getOrderStatisticsForCustomer(Long customerId) {
+        LOGGER.info("Generating order statistics for customer ID: {}", customerId);
+
+        OrderStatisticsResponseDto stats = new OrderStatisticsResponseDto();
+
+        // Get total order count
+        Long totalOrders = orderRepository.countByCustomerId(customerId);
+        stats.setTotalOrders(totalOrders);
+
+        // If no orders, return minimal statistics
+        if (totalOrders == 0) {
+            stats.setTotalSpent(BigDecimal.ZERO);
+            stats.setOrdersByStatus(Map.of());
+            stats.setAverageOrderAmount(BigDecimal.ZERO);
+            stats.setRestaurantCount(0L);
+            return stats;
+        }
+
+        // Get total spent
+        BigDecimal totalSpent = orderRepository.sumTotalPriceByCustomerId(customerId);
+        stats.setTotalSpent(totalSpent != null ? totalSpent : BigDecimal.ZERO);
+
+        // Calculate average order amount
+        if (totalOrders > 0 && totalSpent != null) {
+            stats.setAverageOrderAmount(totalSpent.divide(new BigDecimal(totalOrders), 2, RoundingMode.HALF_UP));
+        } else {
+            stats.setAverageOrderAmount(BigDecimal.ZERO);
+        }
+
+        // Get orders by status
+        List<Object[]> statusCounts = orderRepository.countOrdersByStatusForCustomer(customerId);
+        Map<String, Long> ordersByStatus = new HashMap<>();
+        for (Object[] result : statusCounts) {
+            OrderStatus status = (OrderStatus) result[0];
+            Long count = (Long) result[1];
+            ordersByStatus.put(status.name(), count);
+        }
+        stats.setOrdersByStatus(ordersByStatus);
+
+        // Get first and last order dates
+        stats.setFirstOrderDate(orderRepository.findFirstOrderDateByCustomerId(customerId));
+        stats.setLastOrderDate(orderRepository.findLastOrderDateByCustomerId(customerId));
+
+        // Get restaurant statistics
+        stats.setRestaurantCount(orderRepository.countDistinctRestaurantsByCustomerId(customerId));
+
+        // Get most ordered restaurant
+        List<Object[]> mostOrderedRestaurant = orderRepository.findMostOrderedRestaurantByCustomerId(customerId);
+        if (!mostOrderedRestaurant.isEmpty()) {
+            Object[] result = mostOrderedRestaurant.get(0);
+            Long restaurantId = (Long) result[0];
+            Long orderCount = (Long) result[1];
+
+            stats.setMostOrderedRestaurantId(restaurantId);
+            stats.setMostOrderedRestaurantOrderCount(orderCount);
+
+            // Get restaurant name if available
+            try {
+                Restaurant restaurant = restaurantRepository.findById(restaurantId).orElse(null);
+                if (restaurant != null) {
+                    stats.setMostOrderedRestaurantName(restaurant.getName());
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Could not retrieve restaurant name for ID {}: {}", restaurantId, e.getMessage());
+                stats.setMostOrderedRestaurantName("Unknown Restaurant");
+            }
+        }
+
+        return stats;
     }
 
     private Order findOrderByIdOrThrow(Long orderId) {
