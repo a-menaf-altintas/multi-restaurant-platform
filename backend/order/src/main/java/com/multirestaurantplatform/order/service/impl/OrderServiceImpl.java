@@ -204,6 +204,13 @@ public class OrderServiceImpl implements OrderService {
         return savedOrder;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> findOrdersByCustomerId(Long customerId) {
+        LOGGER.info("Retrieving orders for customer ID: {}", customerId);
+        return orderRepository.findByCustomerId(customerId);
+    }
+
     private Order findOrderByIdOrThrow(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> {

@@ -4,6 +4,8 @@ package com.multirestaurantplatform.order.service;
 import com.multirestaurantplatform.order.model.Order;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.List;
+
 public interface OrderService {
 
     /**
@@ -28,4 +30,12 @@ public interface OrderService {
     Order markAsPickedUp(Long orderId, UserDetails restaurantAdminPrincipal);
     Order markAsOutForDelivery(Long orderId, UserDetails principal);
     Order completeDelivery(Long orderId, UserDetails principal);
+
+    /**
+     * Retrieves all orders for a specific customer.
+     *
+     * @param customerId The ID of the customer whose orders are being retrieved.
+     * @return A list of Order entities for the specified customer.
+     */
+    List<Order> findOrdersByCustomerId(Long customerId);
 }

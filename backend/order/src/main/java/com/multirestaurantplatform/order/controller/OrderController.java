@@ -1,9 +1,11 @@
 // File: backend/order/src/main/java/com/multirestaurantplatform/order/controller/OrderController.java
 package com.multirestaurantplatform.order.controller;
 
+import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
 import com.multirestaurantplatform.order.dto.OrderResponse;
 import com.multirestaurantplatform.order.model.Order;
 import com.multirestaurantplatform.order.service.OrderService;
+import com.multirestaurantplatform.security.model.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,6 +22,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.stream.Collectors;
+import com.multirestaurantplatform.security.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/v1") // Adjusted base path for user-specific cart endpoint
@@ -30,6 +35,7 @@ public class OrderController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderController.class);
     private final OrderService orderService;
+    private final UserRepository userRepository;
 
     // Endpoint to place an order from a user's cart
     @PostMapping("/users/{userId}/orders/place-from-cart")
@@ -126,5 +132,40 @@ public class OrderController {
         LOGGER.info("API call to complete delivery for order ID: {} by user: {}", orderId, userDetails.getUsername());
         Order deliveredOrder = orderService.completeDelivery(orderId, userDetails);
         return ResponseEntity.ok(OrderResponse.fromEntity(deliveredOrder));
+    }
+
+    @GetMapping("/users/{userId}/orders")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get order history for a user",
+            description = "Retrieves all orders placed by the specified user. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order history retrieved successfully"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these orders"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<List<OrderResponse>> getOrderHistory(
+            @Parameter(description = "Username of the user whose order history is to be retrieved") @PathVariable String userId,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails principal) {
+        LOGGER.info("API call to get order history for user: {} by principal: {}", userId, principal.getUsername());
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Get the orders for this user
+        List<Order> orders = orderService.findOrdersByCustomerId(user.getId());
+
+        // Convert entities to DTOs
+        List<OrderResponse> responseList = orders.stream()
+                .map(OrderResponse::fromEntity)
+                .collect(Collectors.toList());
+
+        LOGGER.info("Retrieved {} orders for user: {}", responseList.size(), userId);
+        return ResponseEntity.ok(responseList);
     }
 }
