@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import org.springframework.format.annotation.DateTimeFormat;
 import com.multirestaurantplatform.order.model.OrderStatus;
 import com.multirestaurantplatform.common.exception.BadRequestException;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
 
 @RestController
 @RequestMapping("/api/v1") // Adjusted base path for user-specific cart endpoint
@@ -294,5 +295,40 @@ public class OrderController {
                 userId, responsePage.getTotalElements());
 
         return ResponseEntity.ok(responsePage);
+    }
+
+    @GetMapping("/users/{userId}/orders/statistics")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get order statistics for a user",
+            description = "Retrieves comprehensive order statistics for the specified user. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order statistics retrieved successfully"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these statistics"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<OrderStatisticsResponseDto> getOrderStatistics(
+            @Parameter(description = "Username of the user whose order statistics are to be retrieved")
+            @PathVariable String userId,
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserDetails principal) {
+
+        LOGGER.info("API call to get order statistics for user: {} by principal: {}",
+                userId, principal.getUsername());
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Get the order statistics for this user
+        OrderStatisticsResponseDto statistics = orderService.getOrderStatisticsForCustomer(user.getId());
+
+        LOGGER.info("Retrieved order statistics for user: {}, total orders: {}", userId, statistics.getTotalOrders());
+
+        return ResponseEntity.ok(statistics);
     }
 }

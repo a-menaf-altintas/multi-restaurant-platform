@@ -28,6 +28,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.util.Map;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
 
 @ExtendWith(MockitoExtension.class)
 public class OrderControllerTest {
@@ -124,5 +127,47 @@ public class OrderControllerTest {
         // Verify
         verify(userRepository).findByUsername(username);
         verify(orderService).findFilteredOrdersByCustomerId(userId, status, startDate, endDate, pageable);
+    }
+    @Test
+    public void testGetOrderStatistics() {
+        // Arrange
+        String username = "testUser";
+        Long userId = 1L;
+
+        User user = new User();
+        user.setId(userId);
+        user.setUsername(username);
+
+        OrderStatisticsResponseDto statistics = new OrderStatisticsResponseDto();
+        statistics.setTotalOrders(5L);
+        statistics.setTotalSpent(new BigDecimal("150.50"));
+        statistics.setAverageOrderAmount(new BigDecimal("30.10"));
+        statistics.setOrdersByStatus(Map.of(
+                "DELIVERED", 3L,
+                "CONFIRMED", 2L
+        ));
+        statistics.setFirstOrderDate(LocalDateTime.now().minusDays(30));
+        statistics.setLastOrderDate(LocalDateTime.now().minusDays(2));
+        statistics.setRestaurantCount(2L);
+        statistics.setMostOrderedRestaurantId(101L);
+        statistics.setMostOrderedRestaurantName("Test Restaurant");
+        statistics.setMostOrderedRestaurantOrderCount(3L);
+
+        when(principal.getUsername()).thenReturn(username);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        when(orderService.getOrderStatisticsForCustomer(userId)).thenReturn(statistics);
+
+        // Act
+        ResponseEntity<OrderStatisticsResponseDto> response = orderController.getOrderStatistics(username, principal);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(5L, response.getBody().getTotalOrders());
+        assertEquals(new BigDecimal("150.50"), response.getBody().getTotalSpent());
+        assertEquals(2L, response.getBody().getOrdersByStatus().size());
+
+        // Verify
+        verify(userRepository).findByUsername(username);
+        verify(orderService).getOrderStatisticsForCustomer(userId);
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import com.multirestaurantplatform.order.model.OrderStatus;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
 
 import java.util.List;
 
@@ -68,4 +69,11 @@ public interface OrderService {
             LocalDateTime startDate,
             LocalDateTime endDate,
             Pageable pageable);
+    /**
+     * Generates order statistics for a specific customer.
+     *
+     * @param customerId The ID of the customer
+     * @return A DTO containing various order statistics
+     */
+    OrderStatisticsResponseDto getOrderStatisticsForCustomer(Long customerId);
 }

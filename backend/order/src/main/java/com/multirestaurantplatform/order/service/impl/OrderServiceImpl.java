@@ -34,6 +34,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
+import com.multirestaurantplatform.restaurant.model.Restaurant;
 
 @Service
 @RequiredArgsConstructor
@@ -245,6 +252,79 @@ public class OrderServiceImpl implements OrderService {
             return orderRepository.findByCustomerIdAndCreatedAtBetween(
                     customerId, effectiveStartDate, effectiveEndDate, pageable);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderStatisticsResponseDto getOrderStatisticsForCustomer(Long customerId) {
+        LOGGER.info("Generating order statistics for customer ID: {}", customerId);
+
+        OrderStatisticsResponseDto stats = new OrderStatisticsResponseDto();
+
+        // Get total order count
+        Long totalOrders = orderRepository.countByCustomerId(customerId);
+        stats.setTotalOrders(totalOrders);
+
+        // If no orders, return minimal statistics
+        if (totalOrders == 0) {
+            stats.setTotalSpent(BigDecimal.ZERO);
+            stats.setOrdersByStatus(Map.of());
+            stats.setAverageOrderAmount(BigDecimal.ZERO);
+            stats.setRestaurantCount(0L);
+            return stats;
+        }
+
+        // Get total spent
+        BigDecimal totalSpent = orderRepository.sumTotalPriceByCustomerId(customerId);
+        stats.setTotalSpent(totalSpent != null ? totalSpent : BigDecimal.ZERO);
+
+        // Calculate average order amount
+        if (totalOrders > 0 && totalSpent != null) {
+            stats.setAverageOrderAmount(totalSpent.divide(new BigDecimal(totalOrders), 2, RoundingMode.HALF_UP));
+        } else {
+            stats.setAverageOrderAmount(BigDecimal.ZERO);
+        }
+
+        // Get orders by status
+        List<Object[]> statusCounts = orderRepository.countOrdersByStatusForCustomer(customerId);
+        Map<String, Long> ordersByStatus = new HashMap<>();
+        for (Object[] result : statusCounts) {
+            OrderStatus status = (OrderStatus) result[0];
+            Long count = (Long) result[1];
+            ordersByStatus.put(status.name(), count);
+        }
+        stats.setOrdersByStatus(ordersByStatus);
+
+        // Get first and last order dates
+        stats.setFirstOrderDate(orderRepository.findFirstOrderDateByCustomerId(customerId));
+        stats.setLastOrderDate(orderRepository.findLastOrderDateByCustomerId(customerId));
+
+        // Get restaurant statistics
+        stats.setRestaurantCount(orderRepository.countDistinctRestaurantsByCustomerId(customerId));
+
+        // Get most ordered restaurant
+        List<Object[]> mostOrderedRestaurant = orderRepository.findMostOrderedRestaurantByCustomerId(customerId);
+        if (!mostOrderedRestaurant.isEmpty()) {
+            Object[] result = mostOrderedRestaurant.get(0);
+            Long restaurantId = (Long) result[0];
+            Long orderCount = (Long) result[1];
+
+            stats.setMostOrderedRestaurantId(restaurantId);
+            stats.setMostOrderedRestaurantOrderCount(orderCount);
+
+            // Get restaurant name if available
+            try {
+                Restaurant restaurant = restaurantRepository.findById(restaurantId).orElse(null);
+                if (restaurant != null) {
+                    stats.setMostOrderedRestaurantName(restaurant.getName());
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Could not retrieve restaurant name for ID {}: {}", restaurantId, e.getMessage());
+                stats.setMostOrderedRestaurantName("Unknown Restaurant");
+            }
+        }
+
+        return stats;
     }
 
     private Order findOrderByIdOrThrow(Long orderId) {
