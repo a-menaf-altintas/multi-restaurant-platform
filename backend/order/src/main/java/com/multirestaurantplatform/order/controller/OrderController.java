@@ -25,6 +25,15 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.multirestaurantplatform.security.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.time.LocalDateTime;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.multirestaurantplatform.order.model.OrderStatus;
+import com.multirestaurantplatform.common.exception.BadRequestException;
 
 @RestController
 @RequestMapping("/api/v1") // Adjusted base path for user-specific cart endpoint
@@ -167,5 +176,123 @@ public class OrderController {
 
         LOGGER.info("Retrieved {} orders for user: {}", responseList.size(), userId);
         return ResponseEntity.ok(responseList);
+    }
+
+    @GetMapping("/users/{userId}/orders/paged")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get paginated order history for a user",
+            description = "Retrieves paginated orders placed by the specified user. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Paginated order history retrieved successfully"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these orders"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<Page<OrderResponse>> getPaginatedOrderHistory(
+            @Parameter(description = "Username of the user whose order history is to be retrieved") @PathVariable String userId,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
+            @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction (ASC or DESC)") @RequestParam(defaultValue = "DESC") String direction,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails principal) {
+        LOGGER.info("API call to get paginated order history for user: {} by principal: {}, page: {}, size: {}",
+                userId, principal.getUsername(), page, size);
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Create Pageable object with sorting
+        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+
+        // Get the paginated orders for this user
+        Page<Order> ordersPage = orderService.findOrdersByCustomerId(user.getId(), pageable);
+
+        // Convert entities to DTOs
+        Page<OrderResponse> responsePage = ordersPage.map(OrderResponse::fromEntity);
+
+        LOGGER.info("Retrieved page {} of {} for user: {}, total elements: {}",
+                responsePage.getNumber(), responsePage.getTotalPages(),
+                userId, responsePage.getTotalElements());
+
+        return ResponseEntity.ok(responsePage);
+    }
+
+    @GetMapping("/users/{userId}/orders/filtered")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and #userId == principal.username)")
+    @Operation(summary = "Get filtered order history for a user",
+            description = "Retrieves orders placed by the specified user with optional filtering by status and date range. " +
+                    "The authenticated user must be the owner of the orders or an ADMIN.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Filtered order history retrieved successfully"),
+                    @ApiResponse(responseCode = "400", description = "Invalid filter parameters"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these orders"),
+                    @ApiResponse(responseCode = "404", description = "User not found")
+            })
+    public ResponseEntity<Page<OrderResponse>> getFilteredOrderHistory(
+            @Parameter(description = "Username of the user whose order history is to be retrieved")
+            @PathVariable String userId,
+
+            @Parameter(description = "Filter by order status (e.g., PLACED, CONFIRMED, DELIVERED)")
+            @RequestParam(required = false) OrderStatus status,
+
+            @Parameter(description = "Filter by start date (format: yyyy-MM-dd'T'HH:mm:ss)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+
+            @Parameter(description = "Filter by end date (format: yyyy-MM-dd'T'HH:mm:ss)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+
+            @Parameter(description = "Page number (0-based)")
+            @RequestParam(defaultValue = "0") int page,
+
+            @Parameter(description = "Page size")
+            @RequestParam(defaultValue = "10") int size,
+
+            @Parameter(description = "Sort field")
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+
+            @Parameter(description = "Sort direction (ASC or DESC)")
+            @RequestParam(defaultValue = "DESC") String direction,
+
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal UserDetails principal) {
+
+        LOGGER.info("API call to get filtered order history for user: {} by principal: {}, status: {}, startDate: {}, endDate: {}, page: {}, size: {}",
+                userId, principal.getUsername(), status, startDate, endDate, page, size);
+
+        // Validate date range if both dates are provided
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new BadRequestException("Start date cannot be after end date");
+        }
+
+        // Find the user by username to get their ID
+        User user = userRepository.findByUsername(userId)
+                .orElseThrow(() -> {
+                    LOGGER.warn("User not found with username: {}", userId);
+                    return new ResourceNotFoundException("User not found with username: " + userId);
+                });
+
+        // Create Pageable object with sorting
+        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+
+        // Get the filtered orders for this user
+        Page<Order> ordersPage = orderService.findFilteredOrdersByCustomerId(
+                user.getId(), status, startDate, endDate, pageable);
+
+        // Convert entities to DTOs
+        Page<OrderResponse> responsePage = ordersPage.map(OrderResponse::fromEntity);
+
+        LOGGER.info("Retrieved filtered page {} of {} for user: {}, total elements: {}",
+                responsePage.getNumber(), responsePage.getTotalPages(),
+                userId, responsePage.getTotalElements());
+
+        return ResponseEntity.ok(responsePage);
     }
 }

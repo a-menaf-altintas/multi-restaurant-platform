@@ -16,6 +16,8 @@ import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
 import com.multirestaurantplatform.security.model.Role; // Import Role
 import com.multirestaurantplatform.security.model.User;
 import com.multirestaurantplatform.security.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -209,6 +211,40 @@ public class OrderServiceImpl implements OrderService {
     public List<Order> findOrdersByCustomerId(Long customerId) {
         LOGGER.info("Retrieving orders for customer ID: {}", customerId);
         return orderRepository.findByCustomerId(customerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> findOrdersByCustomerId(Long customerId, Pageable pageable) {
+        LOGGER.info("Retrieving paginated orders for customer ID: {}, page: {}, size: {}",
+                customerId, pageable.getPageNumber(), pageable.getPageSize());
+        return orderRepository.findByCustomerId(customerId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> findFilteredOrdersByCustomerId(
+            Long customerId,
+            OrderStatus status,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable) {
+
+        LOGGER.info("Retrieving filtered orders for customer ID: {}, status: {}, startDate: {}, endDate: {}, page: {}, size: {}",
+                customerId, status, startDate, endDate, pageable.getPageNumber(), pageable.getPageSize());
+
+        // If no date filters provided, use min/max values
+        LocalDateTime effectiveStartDate = startDate != null ? startDate : LocalDateTime.MIN;
+        LocalDateTime effectiveEndDate = endDate != null ? endDate : LocalDateTime.now();
+
+        // Choose appropriate repository method based on which filters are provided
+        if (status != null) {
+            return orderRepository.findByCustomerIdAndStatusAndCreatedAtBetween(
+                    customerId, status, effectiveStartDate, effectiveEndDate, pageable);
+        } else {
+            return orderRepository.findByCustomerIdAndCreatedAtBetween(
+                    customerId, effectiveStartDate, effectiveEndDate, pageable);
+        }
     }
 
     private Order findOrderByIdOrThrow(Long orderId) {

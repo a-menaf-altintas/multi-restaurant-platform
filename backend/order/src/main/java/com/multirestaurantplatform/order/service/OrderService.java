@@ -3,6 +3,10 @@ package com.multirestaurantplatform.order.service;
 
 import com.multirestaurantplatform.order.model.Order;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import java.time.LocalDateTime;
+import com.multirestaurantplatform.order.model.OrderStatus;
 
 import java.util.List;
 
@@ -38,4 +42,30 @@ public interface OrderService {
      * @return A list of Order entities for the specified customer.
      */
     List<Order> findOrdersByCustomerId(Long customerId);
+
+    /**
+     * Retrieves all orders for a specific customer with pagination and sorting.
+     *
+     * @param customerId The ID of the customer whose orders are being retrieved.
+     * @param pageable The pagination and sorting information.
+     * @return A page of Order entities for the specified customer.
+     */
+    Page<Order> findOrdersByCustomerId(Long customerId, Pageable pageable);
+
+    /**
+     * Retrieves filtered orders for a specific customer with pagination.
+     *
+     * @param customerId The ID of the customer
+     * @param status Optional order status filter (can be null)
+     * @param startDate Optional start date filter (can be null)
+     * @param endDate Optional end date filter (can be null)
+     * @param pageable Pagination and sorting information
+     * @return A page of filtered orders
+     */
+    Page<Order> findFilteredOrdersByCustomerId(
+            Long customerId,
+            OrderStatus status,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable);
 }
