@@ -15,8 +15,8 @@ A **modular, container‑ready Spring Boot 3 (Java 21) backend** designed t
 |  ✅     | **Authentication**     | JWT‑based login / registration, role model (ADMIN, RESTAURANT\_ADMIN, CUSTOMER)     |
 |  ✅     | **Restaurant & Menu**  | CRUD for restaurants, categories, items (with media & options)                      |
 |  ✅    | **Order Flow**         | Cart → order → status timeline (PLACED → CONFIRMED → PREPARING → READY → DELIVERED) |
-|  🟡    | **WebSocket Printing** | Real‑time receipt / KDS ticket streaming to browser printers                        |
 |  🟡    | **Payments**           | Stripe integration stub (test keys) with webhook listener                           |
+|  🟡    | **WebSocket Printing** | Real‑time receipt / KDS ticket streaming to browser printers                        |
 |  🔲    | **Admin Dashboard**    | CMS pages, global config, analytics                                                 |
 
 Legend: ✅ finished · 🟡 in progress · 🔲 not started
@@ -39,6 +39,7 @@ Legend: ✅ finished · 🟡 in progress · 🔲 not started
 [DIR] backend/order/src/test/java/com
 [DIR] backend/order/src/test/java/com/multirestaurantplatform
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order
+[DIR] backend/order/src/test/java/com/multirestaurantplatform/order/config
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/controller
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/service
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/service/impl
@@ -5334,4 +5335,4 @@ validateDistributionUrl=true
 zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 LLM Instructions:
-Hello LLM, I need your assistance in developing and improving my application while being careful not breaking the current working app. The project already been started and is progressing. the "Multi‑Restaurant Platform." I will guide … (full block omitted for brevity in code; emitted verbatim at the end).
+Hello LLM, I need your assistance in developing and improving my application while being careful not breaking the current working app. The project already been started and is progressing. the "Multi‑Restaurant Platform." I will guide … (full block omitted for brevity in code; emitted verbatim at the end). analyze the attached file and decide for the next step. Put modules, paths, every java class, interface, implementation, application. properties, build.gradle files etc. that are critical for the project into your memory. Always give full path of the files at beginning. always ask before proceeding. Always with small steps. each step should include a feature change, an automation testing and git commit message. 

@@ -13,8 +13,8 @@ A **modular, container‑ready Spring Boot 3 (Java 21) backend** designed t
 |  ✅     | **Authentication**     | JWT‑based login / registration, role model (ADMIN, RESTAURANT\_ADMIN, CUSTOMER)     |
 |  ✅     | **Restaurant & Menu**  | CRUD for restaurants, categories, items (with media & options)                      |
 |  ✅    | **Order Flow**         | Cart → order → status timeline (PLACED → CONFIRMED → PREPARING → READY → DELIVERED) |
-|  🟡    | **Payments**           | Stripe integration stub (test keys) with webhook listener                           |
-|  🟡    | **WebSocket Printing** | Real‑time receipt / KDS ticket streaming to browser printers                        |
+|  🔲    | **Payments**           | Stripe integration stub (test keys) with webhook listener                           |
+|  🔲    | **WebSocket Printing** | Real‑time receipt / KDS ticket streaming to browser printers                        |
 |  🔲    | **Admin Dashboard**    | CMS pages, global config, analytics                                                 |
 
 Legend: ✅ finished · 🟡 in progress · 🔲 not started

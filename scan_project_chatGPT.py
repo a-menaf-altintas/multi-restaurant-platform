@@ -55,7 +55,7 @@ DEFAULT_SUMMARY = (
 
 LLM_INSTRUCTIONS = (
     "Hello LLM, I need your assistance in developing and improving my application while being careful not breaking the current working app. "
-    "The project already been started and is progressing. the \"Multi‑Restaurant Platform.\" I will guide … (full block omitted for brevity in code; emitted verbatim at the end)."
+    "The project already been started and is progressing. the \"Multi‑Restaurant Platform.\" I will guide … (full block omitted for brevity in code; emitted verbatim at the end). analyze the attached file and decide for the next step. Put modules, paths, every java class, interface, implementation, application. properties, build.gradle files etc. that are critical for the project into your memory. Always give full path of the files at beginning. always ask before proceeding. Always with small steps. each step should include a feature change, an automation testing and git commit message. "
 )
 
 # ---------------------------------------------------------------------------
