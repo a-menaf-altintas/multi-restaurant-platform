@@ -1,3 +1,5 @@
+// File: backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/PersistentCartServiceImpl.java
+
 package com.multirestaurantplatform.order.service.impl;
 
 import com.multirestaurantplatform.order.dto.AddItemToCartRequest;
@@ -20,12 +22,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * Implementation of the CartService that stores cart data in a database.
- */
 public class PersistentCartServiceImpl implements CartService {
 
     private static final Logger logger = LoggerFactory.getLogger(PersistentCartServiceImpl.class);
@@ -45,9 +46,14 @@ public class PersistentCartServiceImpl implements CartService {
         logger.info("PersistentCartServiceImpl initialized. Using database persistence for carts.");
     }
 
+    // File: backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/PersistentCartServiceImpl.java
+
+    // File: backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/PersistentCartServiceImpl.java
+
     @Override
     @Transactional
     public CartResponse addItemToCart(String userId, AddItemToCartRequest addItemRequest) {
+        // Validate the menu item details
         MenuItemDetailsDto itemDetails = menuServiceClient
                 .getMenuItemDetails(addItemRequest.getMenuItemId(), addItemRequest.getRestaurantId())
                 .orElseThrow(() -> new CartUpdateException("Menu item " + addItemRequest.getMenuItemId() + " not found or unavailable."));
@@ -69,36 +75,42 @@ public class PersistentCartServiceImpl implements CartService {
             cart.setUserId(userId);
             cart.setRestaurantId(itemDetails.getRestaurantId());
             cart.setRestaurantName(itemDetails.getRestaurantName());
-            cart.setCartTotalPrice(BigDecimal.ZERO);
+            cart.setCartTotalPrice(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+            // Save cart first to get an ID
+            cart = cartRepository.save(cart);
         }
         // If cart exists but has different restaurant, clear it and set new restaurant
-        else if (!itemDetails.getRestaurantId().equals(cart.getRestaurantId())) {
+        else if (cart.getRestaurantId() != null && !itemDetails.getRestaurantId().equals(cart.getRestaurantId())) {
             logger.info("User {} adding item from new restaurant {}. Clearing old cart from restaurant {}.",
                     userId, itemDetails.getRestaurantName(), cart.getRestaurantName());
 
+            // Delete all cart items from the database
             cartItemRepository.deleteByCart(cart);
+
+            // Clear the in-memory collection
             cart.getItems().clear();
+
+            // Set new restaurant
             cart.setRestaurantId(itemDetails.getRestaurantId());
             cart.setRestaurantName(itemDetails.getRestaurantName());
-            cart.setCartTotalPrice(BigDecimal.ZERO);
+
+            // Reset cart total price
+            cart.setCartTotalPrice(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
         }
 
-        // Save cart first if it's new to get the ID
-        if (cart.getId() == null) {
-            cart = cartRepository.save(cart);
-        }
+        // FIXED: Use cartItemRepository to check if the item already exists in the cart
+        // This matches the expectation in the tests
+        Optional<CartItemEntity> existingItemOpt = cartItemRepository.findByCartAndMenuItemId(cart, addItemRequest.getMenuItemId());
 
-        // Check if the item already exists in the cart
-        CartItemEntity cartItem = cartItemRepository.findByCartAndMenuItemId(cart, addItemRequest.getMenuItemId())
-                .orElse(null);
-
-        if (cartItem != null) {
+        if (existingItemOpt.isPresent()) {
             // Update existing item
+            CartItemEntity cartItem = existingItemOpt.get();
             cartItem.setQuantity(cartItem.getQuantity() + addItemRequest.getQuantity());
+            cartItem.recalculateTotalPrice();
             cartItemRepository.save(cartItem);
         } else {
             // Add new item
-            cartItem = new CartItemEntity(
+            CartItemEntity cartItem = new CartItemEntity(
                     itemDetails.getId(),
                     itemDetails.getName(),
                     addItemRequest.getQuantity(),
@@ -111,7 +123,7 @@ public class PersistentCartServiceImpl implements CartService {
 
         // Recalculate cart total
         cart.recalculateCartTotalPrice();
-        cartRepository.save(cart);
+        cart = cartRepository.save(cart);
 
         return mapCartEntityToResponse(cart);
     }
@@ -140,11 +152,12 @@ public class PersistentCartServiceImpl implements CartService {
                 .orElseThrow(() -> new MenuItemNotFoundInCartException("Menu item " + menuItemId + " not found in cart."));
 
         itemToUpdate.setQuantity(updateRequest.getQuantity());
+        itemToUpdate.recalculateTotalPrice(); // Ensure the item's total is recalculated
         cartItemRepository.save(itemToUpdate);
 
         // Recalculate cart total
         cart.recalculateCartTotalPrice();
-        cartRepository.save(cart);
+        cart = cartRepository.save(cart);
 
         return mapCartEntityToResponse(cart);
     }
@@ -158,18 +171,22 @@ public class PersistentCartServiceImpl implements CartService {
         CartItemEntity itemToRemove = cartItemRepository.findByCartAndMenuItemId(cart, menuItemId)
                 .orElseThrow(() -> new MenuItemNotFoundInCartException("Menu item " + menuItemId + " not found in cart for removal."));
 
-        cart.removeItem(itemToRemove);
+        // Remove the item from the cart's items collection
+        cart.getItems().remove(itemToRemove);
+
+        // Delete the item entity from the database
         cartItemRepository.delete(itemToRemove);
 
-        // If cart becomes empty, reset the restaurant info but keep the cart entity
+        // If cart becomes empty after removing the item, reset restaurant info
         if (cart.getItems().isEmpty()) {
             cart.setRestaurantId(null);
             cart.setRestaurantName(null);
         }
 
-        // Recalculate cart total (should be zero if empty)
+        // Recalculate cart total and ensure proper scaling
         cart.recalculateCartTotalPrice();
-        cartRepository.save(cart);
+        cart.setCartTotalPrice(cart.getCartTotalPrice().setScale(2, RoundingMode.HALF_UP));
+        cart = cartRepository.save(cart);
 
         return mapCartEntityToResponse(cart);
     }
@@ -185,14 +202,14 @@ public class PersistentCartServiceImpl implements CartService {
             return;
         }
 
-        // Delete all cart items
+        // Delete all cart items from the database
         cartItemRepository.deleteByCart(cart);
 
         // Reset the cart but keep the entity (soft clear)
         cart.getItems().clear();
         cart.setRestaurantId(null);
         cart.setRestaurantName(null);
-        cart.setCartTotalPrice(BigDecimal.ZERO);
+        cart.setCartTotalPrice(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
         cartRepository.save(cart);
 
         logger.info("Cart cleared for user {}", userId);
@@ -206,12 +223,15 @@ public class PersistentCartServiceImpl implements CartService {
                 .map(this::mapCartItemEntityToResponse)
                 .collect(Collectors.toList());
 
+        // Ensure the cart total has the right scale for consistent comparison
+        BigDecimal formattedTotal = cart.getCartTotalPrice().setScale(2, RoundingMode.HALF_UP);
+
         return new CartResponse(
                 cart.getUserId(),
                 cart.getRestaurantId(),
                 cart.getRestaurantName(),
                 itemResponses,
-                cart.getCartTotalPrice()
+                formattedTotal
         );
     }
 
