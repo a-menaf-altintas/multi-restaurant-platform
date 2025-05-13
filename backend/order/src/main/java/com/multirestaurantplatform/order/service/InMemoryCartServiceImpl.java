@@ -18,7 +18,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
+/**
+ * Implementation of the CartService that stores cart data in memory.
+ * Note: This implementation does not persist cart data across application restarts.
+ * For persistent storage, use PersistentCartServiceImpl instead.
+ *
+ * This implementation is still available for testing and development scenarios
+ * where database persistence is not required.
+ */
 @Service
 public class InMemoryCartServiceImpl implements CartService {
 

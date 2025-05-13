@@ -24,10 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -272,7 +269,7 @@ class PersistentCartServiceImplTest {
         verify(cartRepository).findByUserId(userId);
         verify(cartItemRepository).deleteByCart(testCart);
         verify(cartRepository).save(testCart);
-        
+
         // The cart should be reset but not deleted
         assertNull(testCart.getRestaurantId());
         assertNull(testCart.getRestaurantName());

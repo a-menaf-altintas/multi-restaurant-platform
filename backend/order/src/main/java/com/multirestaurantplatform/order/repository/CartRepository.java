@@ -11,7 +11,7 @@ import java.util.Optional;
  */
 @Repository
 public interface CartRepository extends JpaRepository<CartEntity, Long> {
-    
+
     /**
      * Find a cart by the user ID.
      *
@@ -19,7 +19,7 @@ public interface CartRepository extends JpaRepository<CartEntity, Long> {
      * @return An Optional containing the cart if found, empty otherwise
      */
     Optional<CartEntity> findByUserId(String userId);
-    
+
     /**
      * Check if a cart exists for the given user ID.
      *
@@ -27,7 +27,7 @@ public interface CartRepository extends JpaRepository<CartEntity, Long> {
      * @return true if a cart exists for the user, false otherwise
      */
     boolean existsByUserId(String userId);
-    
+
     /**
      * Delete a cart by the user ID.
      *

@@ -18,8 +18,6 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,8 +26,6 @@ import java.util.stream.Collectors;
 /**
  * Implementation of the CartService that stores cart data in a database.
  */
-@Service
-@Primary // Mark this implementation as the primary one to be used
 public class PersistentCartServiceImpl implements CartService {
 
     private static final Logger logger = LoggerFactory.getLogger(PersistentCartServiceImpl.class);

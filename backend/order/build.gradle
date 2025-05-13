@@ -51,6 +51,8 @@ dependencies {
     // Test dependency on the api module (e.g., if tests need GlobalExceptionHandler or ErrorResponse DTO from the api module)
     // This was existing for CartControllerTest. Keep if still relevant for order tests.
     testImplementation project(':backend:api')
+    // Add H2 database for tests if not already included
+    testRuntimeOnly 'com.h2database:h2'
 }
 
 java {

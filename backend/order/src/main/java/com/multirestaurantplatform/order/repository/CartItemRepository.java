@@ -13,7 +13,7 @@ import java.util.Optional;
  */
 @Repository
 public interface CartItemRepository extends JpaRepository<CartItemEntity, Long> {
-    
+
     /**
      * Find all cart items belonging to a specific cart.
      *
@@ -21,7 +21,7 @@ public interface CartItemRepository extends JpaRepository<CartItemEntity, Long> 
      * @return A list of cart items belonging to the cart
      */
     List<CartItemEntity> findByCart(CartEntity cart);
-    
+
     /**
      * Find a specific cart item by cart and menu item ID.
      *
@@ -30,7 +30,7 @@ public interface CartItemRepository extends JpaRepository<CartItemEntity, Long> 
      * @return An Optional containing the cart item if found, empty otherwise
      */
     Optional<CartItemEntity> findByCartAndMenuItemId(CartEntity cart, Long menuItemId);
-    
+
     /**
      * Check if a cart item exists in a cart for a specific menu item.
      *
@@ -39,7 +39,7 @@ public interface CartItemRepository extends JpaRepository<CartItemEntity, Long> 
      * @return true if the cart item exists, false otherwise
      */
     boolean existsByCartAndMenuItemId(CartEntity cart, Long menuItemId);
-    
+
     /**
      * Delete all cart items belonging to a specific cart.
      *
