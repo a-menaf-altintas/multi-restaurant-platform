@@ -1,0 +1,1117 @@
+{
+  "project_name": "multi-restaurant-platform",
+  "summary": "# Multi\u2011Restaurant Platform\n\nA **modular, container\u2011ready Spring\u00a0Boot\u202f3 (Java\u202f21) backend** designed to power multi\u2011restaurant ordering, management, and (eventually) delivery experiences.\n\n> **Why this repo exists**\u2003The author rebuilt the project *from scratch* after an earlier \u201cbig\u2011bang\u201d attempt generated too many errors to untangle.  Everything here is meant to be grown **one small, reviewed step at a time**\u2014you\u2019ll see that philosophy reflected throughout this README.\n\n---\n\n## 1\u00a0\u00a0Features (current & planned)\n\n| Status | Domain                 | Highlights                                                                          |\n| ------ | ---------------------- | ----------------------------------------------------------------------------------- |\n| \u00a0\u2705\u00a0    | **Authentication**     | JWT\u2011based login / registration, role model (ADMIN, RESTAURANT\\_ADMIN, CUSTOMER)     |\n| \u00a0\u2705\u00a0    | **Restaurant\u00a0&\u00a0Menu**  | CRUD for restaurants, categories, items (with media & options)                      |\n| \u00a0\u2705\u00a0   | **Order\u00a0Flow**         | Cart \u2192 order \u2192 status timeline (PLACED\u00a0\u2192\u00a0CONFIRMED\u00a0\u2192\u00a0PREPARING\u00a0\u2192\u00a0READY\u00a0\u2192\u00a0DELIVERED) |\n| \u00a0\ud83d\udd32\u00a0   | **Payments**           | Stripe integration stub (test keys) with webhook listener                           |\n| \u00a0\ud83d\udd32\u00a0   | **WebSocket\u00a0Printing** | Real\u2011time receipt / KDS ticket streaming to browser printers                        |\n| \u00a0\ud83d\udd32\u00a0   | **Admin\u00a0Dashboard**    | CMS pages, global config, analytics                                                 |\n\nLegend: \u2705\u00a0finished \u00b7 \ud83d\udfe1\u00a0in progress \u00b7 \ud83d\udd32\u00a0not started\n\n---\n\n## 2\u00a0\u00a0Tech\u00a0Stack\n\n| Layer       | Choice                                   | Notes                                                      |\n| ----------- | ---------------------------------------- | ---------------------------------------------------------- |\n| Language    | **Java\u00a021**                              | Modern features (records, sealed classes, virtual threads) |\n| Framework   | **Spring\u00a0Boot\u00a03.2.x**                    | Modular (each sub\u2011module is its own Spring\u00a0Boot project)   |",
+  "scan_config": {
+    "include_exts": [
+      ".java"
+    ],
+    "include_only_module": null,
+    "include_only_file_names_in_path": true,
+    "scan_area": "backend",
+    "include_tests": true
+  },
+  "directories": [
+    ".",
+    "backend",
+    "backend/order",
+    "backend/order/src",
+    "backend/order/src/test",
+    "backend/order/src/test/resources",
+    "backend/order/src/test/java",
+    "backend/order/src/test/java/com",
+    "backend/order/src/test/java/com/multirestaurantplatform",
+    "backend/order/src/test/java/com/multirestaurantplatform/order",
+    "backend/order/src/test/java/com/multirestaurantplatform/order/repository",
+    "backend/order/src/test/java/com/multirestaurantplatform/order/config",
+    "backend/order/src/test/java/com/multirestaurantplatform/order/controller",
+    "backend/order/src/test/java/com/multirestaurantplatform/order/service",
+    "backend/order/src/test/java/com/multirestaurantplatform/order/service/impl",
+    "backend/order/src/main",
+    "backend/order/src/main/resources",
+    "backend/order/src/main/java",
+    "backend/order/src/main/java/com",
+    "backend/order/src/main/java/com/multirestaurantplatform",
+    "backend/order/src/main/java/com/multirestaurantplatform/order",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/dto",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/repository",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/config",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/controller",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/model",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/model/cart",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/service",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/service/impl",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/service/client",
+    "backend/order/src/main/java/com/multirestaurantplatform/order/exception",
+    "backend/restaurant",
+    "backend/restaurant/src",
+    "backend/restaurant/src/test",
+    "backend/restaurant/src/test/resources",
+    "backend/restaurant/src/test/java",
+    "backend/restaurant/src/test/java/com",
+    "backend/restaurant/src/test/java/com/multirestaurantplatform",
+    "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant",
+    "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service",
+    "backend/restaurant/src/main",
+    "backend/restaurant/src/main/resources",
+    "backend/restaurant/src/main/java",
+    "backend/restaurant/src/main/java/com",
+    "backend/restaurant/src/main/java/com/multirestaurantplatform",
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant",
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto",
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/repository",
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/model",
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service",
+    "backend/security",
+    "backend/security/src",
+    "backend/security/src/test",
+    "backend/security/src/test/resources",
+    "backend/security/src/test/java",
+    "backend/security/src/test/java/com",
+    "backend/security/src/test/java/com/multirestaurantplatform",
+    "backend/security/src/test/java/com/multirestaurantplatform/security",
+    "backend/security/src/test/java/com/multirestaurantplatform/security/service",
+    "backend/security/src/main",
+    "backend/security/src/main/resources",
+    "backend/security/src/main/java",
+    "backend/security/src/main/java/com",
+    "backend/security/src/main/java/com/multirestaurantplatform",
+    "backend/security/src/main/java/com/multirestaurantplatform/security",
+    "backend/security/src/main/java/com/multirestaurantplatform/security/dto",
+    "backend/security/src/main/java/com/multirestaurantplatform/security/repository",
+    "backend/security/src/main/java/com/multirestaurantplatform/security/config",
+    "backend/security/src/main/java/com/multirestaurantplatform/security/model",
+    "backend/security/src/main/java/com/multirestaurantplatform/security/filter",
+    "backend/security/src/main/java/com/multirestaurantplatform/security/service",
+    "backend/payment",
+    "backend/payment/src",
+    "backend/payment/src/test",
+    "backend/payment/src/test/resources",
+    "backend/payment/src/test/java",
+    "backend/payment/src/main",
+    "backend/payment/src/main/resources",
+    "backend/payment/src/main/java",
+    "backend/admin",
+    "backend/admin/src",
+    "backend/admin/src/test",
+    "backend/admin/src/test/resources",
+    "backend/admin/src/test/java",
+    "backend/admin/src/main",
+    "backend/admin/src/main/resources",
+    "backend/admin/src/main/java",
+    "backend/print",
+    "backend/print/src",
+    "backend/print/src/test",
+    "backend/print/src/test/resources",
+    "backend/print/src/test/java",
+    "backend/print/src/main",
+    "backend/print/src/main/resources",
+    "backend/print/src/main/java",
+    "backend/common",
+    "backend/common/src",
+    "backend/common/src/test",
+    "backend/common/src/test/resources",
+    "backend/common/src/test/java",
+    "backend/common/src/main",
+    "backend/common/src/main/resources",
+    "backend/common/src/main/java",
+    "backend/common/src/main/java/com",
+    "backend/common/src/main/java/com/multirestaurantplatform",
+    "backend/common/src/main/java/com/multirestaurantplatform/common",
+    "backend/common/src/main/java/com/multirestaurantplatform/common/model",
+    "backend/common/src/main/java/com/multirestaurantplatform/common/exception",
+    "backend/menu",
+    "backend/menu/src",
+    "backend/menu/src/test",
+    "backend/menu/src/test/resources",
+    "backend/menu/src/test/java",
+    "backend/menu/src/test/java/com",
+    "backend/menu/src/test/java/com/multirestaurantplatform",
+    "backend/menu/src/test/java/com/multirestaurantplatform/menu",
+    "backend/menu/src/test/java/com/multirestaurantplatform/menu/service",
+    "backend/menu/src/main",
+    "backend/menu/src/main/resources",
+    "backend/menu/src/main/java",
+    "backend/menu/src/main/java/com",
+    "backend/menu/src/main/java/com/multirestaurantplatform",
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu",
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/dto",
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/repository",
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/model",
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/service",
+    "backend/api",
+    "backend/api/src",
+    "backend/api/src/test",
+    "backend/api/src/test/resources",
+    "backend/api/src/test/java",
+    "backend/api/src/test/java/com",
+    "backend/api/src/test/java/com/multirestaurantplatform",
+    "backend/api/src/test/java/com/multirestaurantplatform/api",
+    "backend/api/src/test/java/com/multirestaurantplatform/api/controller",
+    "backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth",
+    "backend/api/src/test/java/com/multirestaurantplatform/api/e2e",
+    "backend/api/src/main",
+    "backend/api/src/main/resources",
+    "backend/api/src/main/resources/db",
+    "backend/api/src/main/resources/db/migration",
+    "backend/api/src/main/java",
+    "backend/api/src/main/java/com",
+    "backend/api/src/main/java/com/multirestaurantplatform",
+    "backend/api/src/main/java/com/multirestaurantplatform/api",
+    "backend/api/src/main/java/com/multirestaurantplatform/api/dto",
+    "backend/api/src/main/java/com/multirestaurantplatform/api/dto/error",
+    "backend/api/src/main/java/com/multirestaurantplatform/api/config",
+    "backend/api/src/main/java/com/multirestaurantplatform/api/payload",
+    "backend/api/src/main/java/com/multirestaurantplatform/api/controller",
+    "backend/api/src/main/java/com/multirestaurantplatform/api/controller/auth",
+    "backend/api/src/main/java/com/multirestaurantplatform/api/exception"
+  ],
+  "files": [
+    {
+      "path": "backend/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/order/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/OrderModuleTestApplication.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/config/TestConfig.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/controller/CartControllerTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/controller/OrderControllerTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/service/InMemoryCartServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/service/impl/OrderServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/service/impl/PersistentCartServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/AddItemToCartRequest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/CartItemResponse.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/CartResponse.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderItemResponse.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderResponse.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/OrderStatisticsResponseDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/UpdateCartItemRequest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/repository/CartItemRepository.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/repository/CartRepository.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/repository/OrderRepository.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/config/CartServiceConfig.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/controller/CartController.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/controller/OrderController.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/model/Order.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/model/OrderItem.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/model/OrderStatus.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/model/cart/Cart.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/model/cart/CartEntity.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/model/cart/CartItem.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/model/cart/CartItemEntity.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/CartService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/InMemoryCartServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/OrderService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/OrderServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/PersistentCartServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/client/MenuItemDetailsDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/client/MenuServiceClient.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/service/client/StubMenuServiceClientImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/exception/CartNotFoundException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/exception/CartUpdateException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/exception/IllegalOrderStateException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/order/src/main/java/com/multirestaurantplatform/order/exception/MenuItemNotFoundInCartException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service/RestaurantSecurityServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service/RestaurantServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/CreateRestaurantRequestDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/RestaurantResponseDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/UpdateRestaurantRequestDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/repository/RestaurantRepository.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/model/Restaurant.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantSecurityService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantSecurityServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service/RestaurantServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/security/src/test/java/com/multirestaurantplatform/security/service/JwtServiceTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/test/java/com/multirestaurantplatform/security/service/UserServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/dto/JwtAuthenticationResponse.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/dto/LoginRequest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/dto/RegisterRequest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/dto/UserResponseDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/repository/UserRepository.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/config/JwtAuthenticationEntryPoint.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/config/SecurityConfig.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/model/Role.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/model/User.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/filter/JwtAuthenticationFilter.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/service/JwtService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/service/UserDetailsServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/service/UserService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/security/src/main/java/com/multirestaurantplatform/security/service/UserServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/payment/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/admin/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/print/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/common/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/common/src/main/java/com/multirestaurantplatform/common/model/BaseEntity.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/common/src/main/java/com/multirestaurantplatform/common/exception/AppException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/common/src/main/java/com/multirestaurantplatform/common/exception/BadRequestException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/common/src/main/java/com/multirestaurantplatform/common/exception/ConflictException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/common/src/main/java/com/multirestaurantplatform/common/exception/ResourceNotFoundException.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/menu/src/test/java/com/multirestaurantplatform/menu/service/MenuSecurityServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/test/java/com/multirestaurantplatform/menu/service/MenuServiceImplTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/dto/CreateMenuRequestDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/dto/MenuResponseDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/dto/UpdateMenuRequestDto.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/repository/MenuRepository.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/model/Menu.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/service/MenuSecurityService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/service/MenuSecurityServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/service/MenuService.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/service/MenuServiceImpl.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/build.gradle",
+      "type": "gradle"
+    },
+    {
+      "path": "backend/api/src/test/resources/application.properties",
+      "type": "properties"
+    },
+    {
+      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/MenuControllerIntegrationTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/OrderHistoryIntegrationTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/RestaurantControllerIntegrationTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth/AuthControllerIntegrationTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/e2e/OrderFlowEndToEndTest.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/resources/application.properties",
+      "type": "properties"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/ApiApplication.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/dto/error/ErrorResponse.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/config/OpenApiConfig.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/controller/HealthCheckController.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/controller/MenuController.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/controller/RestaurantController.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/controller/UserController.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/controller/auth/AuthController.java",
+      "type": "java"
+    },
+    {
+      "path": "backend/api/src/main/java/com/multirestaurantplatform/api/exception/GlobalExceptionHandler.java",
+      "type": "java"
+    }
+  ],
+  "llm_instructions": "You are an expert full stack web/mobile developer. You have an expert knowledge of Java, gradle, maven, spring boot, docker, docker-compose, angular, react, javascript, typescript, html, css. I need your assistance in developing and improving my application while being careful not breaking the current working app. The project has already been started and is progressing. It's the \"Multi\u2011Restaurant Platform\". I will guide you through the next steps. Analyze the code structure, modules, paths, and files that are critical for the project. Always give full path of the files when referencing them. Always ask before proceeding. We'll work in small steps, where each step should include a feature change, an automation testing, and a git commit message.",
+  "files_by_directory": {
+    ".": [
+      "nofileexist"
+    ],
+    "backend": [
+      "build.gradle"
+    ],
+    "backend/order": [
+      "build.gradle"
+    ],
+    "backend/order/src": [
+      "nofileexist"
+    ],
+    "backend/order/src/test": [
+      "nofileexist"
+    ],
+    "backend/order/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/order/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/order/src/test/java/com": [
+      "nofileexist"
+    ],
+    "backend/order/src/test/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/order/src/test/java/com/multirestaurantplatform/order": [
+      "OrderModuleTestApplication.java"
+    ],
+    "backend/order/src/test/java/com/multirestaurantplatform/order/repository": [
+      "nofileexist"
+    ],
+    "backend/order/src/test/java/com/multirestaurantplatform/order/config": [
+      "TestConfig.java"
+    ],
+    "backend/order/src/test/java/com/multirestaurantplatform/order/controller": [
+      "CartControllerTest.java",
+      "OrderControllerTest.java"
+    ],
+    "backend/order/src/test/java/com/multirestaurantplatform/order/service": [
+      "InMemoryCartServiceImplTest.java"
+    ],
+    "backend/order/src/test/java/com/multirestaurantplatform/order/service/impl": [
+      "OrderServiceImplTest.java",
+      "PersistentCartServiceImplTest.java"
+    ],
+    "backend/order/src/main": [
+      "nofileexist"
+    ],
+    "backend/order/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/order/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/order/src/main/java/com": [
+      "nofileexist"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order": [
+      "nofileexist"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/dto": [
+      "AddItemToCartRequest.java",
+      "CartItemResponse.java",
+      "CartResponse.java",
+      "OrderItemResponse.java",
+      "OrderResponse.java",
+      "OrderStatisticsResponseDto.java",
+      "UpdateCartItemRequest.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/repository": [
+      "CartItemRepository.java",
+      "CartRepository.java",
+      "OrderRepository.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/config": [
+      "CartServiceConfig.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/controller": [
+      "CartController.java",
+      "OrderController.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/model": [
+      "Order.java",
+      "OrderItem.java",
+      "OrderStatus.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/model/cart": [
+      "Cart.java",
+      "CartEntity.java",
+      "CartItem.java",
+      "CartItemEntity.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/service": [
+      "CartService.java",
+      "InMemoryCartServiceImpl.java",
+      "OrderService.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/service/impl": [
+      "OrderServiceImpl.java",
+      "PersistentCartServiceImpl.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/service/client": [
+      "MenuItemDetailsDto.java",
+      "MenuServiceClient.java",
+      "StubMenuServiceClientImpl.java"
+    ],
+    "backend/order/src/main/java/com/multirestaurantplatform/order/exception": [
+      "CartNotFoundException.java",
+      "CartUpdateException.java",
+      "IllegalOrderStateException.java",
+      "MenuItemNotFoundInCartException.java"
+    ],
+    "backend/restaurant": [
+      "build.gradle"
+    ],
+    "backend/restaurant/src": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/test": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/test/java/com": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/test/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service": [
+      "RestaurantSecurityServiceImplTest.java",
+      "RestaurantServiceImplTest.java"
+    ],
+    "backend/restaurant/src/main": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/main/java/com": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/main/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant": [
+      "nofileexist"
+    ],
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto": [
+      "CreateRestaurantRequestDto.java",
+      "RestaurantResponseDto.java",
+      "UpdateRestaurantRequestDto.java"
+    ],
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/repository": [
+      "RestaurantRepository.java"
+    ],
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/model": [
+      "Restaurant.java"
+    ],
+    "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/service": [
+      "RestaurantSecurityService.java",
+      "RestaurantSecurityServiceImpl.java",
+      "RestaurantService.java",
+      "RestaurantServiceImpl.java"
+    ],
+    "backend/security": [
+      "build.gradle"
+    ],
+    "backend/security/src": [
+      "nofileexist"
+    ],
+    "backend/security/src/test": [
+      "nofileexist"
+    ],
+    "backend/security/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/security/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/security/src/test/java/com": [
+      "nofileexist"
+    ],
+    "backend/security/src/test/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/security/src/test/java/com/multirestaurantplatform/security": [
+      "nofileexist"
+    ],
+    "backend/security/src/test/java/com/multirestaurantplatform/security/service": [
+      "JwtServiceTest.java",
+      "UserServiceImplTest.java"
+    ],
+    "backend/security/src/main": [
+      "nofileexist"
+    ],
+    "backend/security/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/security/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/security/src/main/java/com": [
+      "nofileexist"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform/security": [
+      "nofileexist"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform/security/dto": [
+      "JwtAuthenticationResponse.java",
+      "LoginRequest.java",
+      "RegisterRequest.java",
+      "UserResponseDto.java"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform/security/repository": [
+      "UserRepository.java"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform/security/config": [
+      "JwtAuthenticationEntryPoint.java",
+      "SecurityConfig.java"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform/security/model": [
+      "Role.java",
+      "User.java"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform/security/filter": [
+      "JwtAuthenticationFilter.java"
+    ],
+    "backend/security/src/main/java/com/multirestaurantplatform/security/service": [
+      "JwtService.java",
+      "UserDetailsServiceImpl.java",
+      "UserService.java",
+      "UserServiceImpl.java"
+    ],
+    "backend/payment": [
+      "build.gradle"
+    ],
+    "backend/payment/src": [
+      "nofileexist"
+    ],
+    "backend/payment/src/test": [
+      "nofileexist"
+    ],
+    "backend/payment/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/payment/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/admin": [
+      "build.gradle"
+    ],
+    "backend/admin/src": [
+      "nofileexist"
+    ],
+    "backend/admin/src/test": [
+      "nofileexist"
+    ],
+    "backend/admin/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/admin/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/admin/src/main": [
+      "nofileexist"
+    ],
+    "backend/admin/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/admin/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/print": [
+      "build.gradle"
+    ],
+    "backend/print/src": [
+      "nofileexist"
+    ],
+    "backend/print/src/test": [
+      "nofileexist"
+    ],
+    "backend/print/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/print/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/print/src/main": [
+      "nofileexist"
+    ],
+    "backend/print/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/print/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/common": [
+      "build.gradle"
+    ],
+    "backend/common/src": [
+      "nofileexist"
+    ],
+    "backend/common/src/test": [
+      "nofileexist"
+    ],
+    "backend/common/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/common/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/common/src/main": [
+      "nofileexist"
+    ],
+    "backend/common/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/common/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/common/src/main/java/com": [
+      "nofileexist"
+    ],
+    "backend/common/src/main/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/common/src/main/java/com/multirestaurantplatform/common": [
+      "nofileexist"
+    ],
+    "backend/common/src/main/java/com/multirestaurantplatform/common/model": [
+      "BaseEntity.java"
+    ],
+    "backend/common/src/main/java/com/multirestaurantplatform/common/exception": [
+      "AppException.java",
+      "BadRequestException.java",
+      "ConflictException.java",
+      "ResourceNotFoundException.java"
+    ],
+    "backend/menu": [
+      "build.gradle"
+    ],
+    "backend/menu/src": [
+      "nofileexist"
+    ],
+    "backend/menu/src/test": [
+      "nofileexist"
+    ],
+    "backend/menu/src/test/resources": [
+      "nofileexist"
+    ],
+    "backend/menu/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/menu/src/test/java/com": [
+      "nofileexist"
+    ],
+    "backend/menu/src/test/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/menu/src/test/java/com/multirestaurantplatform/menu": [
+      "nofileexist"
+    ],
+    "backend/menu/src/test/java/com/multirestaurantplatform/menu/service": [
+      "MenuSecurityServiceImplTest.java",
+      "MenuServiceImplTest.java"
+    ],
+    "backend/menu/src/main": [
+      "nofileexist"
+    ],
+    "backend/menu/src/main/resources": [
+      "nofileexist"
+    ],
+    "backend/menu/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/menu/src/main/java/com": [
+      "nofileexist"
+    ],
+    "backend/menu/src/main/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu": [
+      "nofileexist"
+    ],
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/dto": [
+      "CreateMenuRequestDto.java",
+      "MenuResponseDto.java",
+      "UpdateMenuRequestDto.java"
+    ],
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/repository": [
+      "MenuRepository.java"
+    ],
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/model": [
+      "Menu.java"
+    ],
+    "backend/menu/src/main/java/com/multirestaurantplatform/menu/service": [
+      "MenuSecurityService.java",
+      "MenuSecurityServiceImpl.java",
+      "MenuService.java",
+      "MenuServiceImpl.java"
+    ],
+    "backend/api": [
+      "build.gradle"
+    ],
+    "backend/api/src": [
+      "nofileexist"
+    ],
+    "backend/api/src/test": [
+      "nofileexist"
+    ],
+    "backend/api/src/test/resources": [
+      "application.properties"
+    ],
+    "backend/api/src/test/java": [
+      "nofileexist"
+    ],
+    "backend/api/src/test/java/com": [
+      "nofileexist"
+    ],
+    "backend/api/src/test/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/api/src/test/java/com/multirestaurantplatform/api": [
+      "nofileexist"
+    ],
+    "backend/api/src/test/java/com/multirestaurantplatform/api/controller": [
+      "MenuControllerIntegrationTest.java",
+      "OrderHistoryIntegrationTest.java",
+      "RestaurantControllerIntegrationTest.java"
+    ],
+    "backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth": [
+      "AuthControllerIntegrationTest.java"
+    ],
+    "backend/api/src/test/java/com/multirestaurantplatform/api/e2e": [
+      "OrderFlowEndToEndTest.java"
+    ],
+    "backend/api/src/main": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/resources": [
+      "application.properties"
+    ],
+    "backend/api/src/main/resources/db": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/resources/db/migration": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/java/com": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api": [
+      "ApiApplication.java"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api/dto": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api/dto/error": [
+      "ErrorResponse.java"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api/config": [
+      "OpenApiConfig.java"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api/payload": [
+      "nofileexist"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api/controller": [
+      "HealthCheckController.java",
+      "MenuController.java",
+      "RestaurantController.java",
+      "UserController.java"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api/controller/auth": [
+      "AuthController.java"
+    ],
+    "backend/api/src/main/java/com/multirestaurantplatform/api/exception": [
+      "GlobalExceptionHandler.java"
+    ]
+  }
+}

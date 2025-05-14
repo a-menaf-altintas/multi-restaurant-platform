@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#python3 scan_project_claudeToJson.py -includeTests                # Include test files in scan#!/usr/bin/env python3
 """
 Advanced Project Scanner with Filtering Options
 -----------------------------------------------
@@ -7,6 +7,7 @@ Advanced Project Scanner with Filtering Options
   - Filter by module with '-includeOnlyModule'
   - Include only file names in path with '-includeOnlyFileNamesInPath'
   - Specify scanning frontend or backend with '-scanArea'
+  - Include test files with '-includeTests'
 * Outputs structured JSON or plain text with:
   - Project overview
   - LLM instructions
@@ -196,7 +197,8 @@ def get_module_name(file_path: str, scan_area: Optional[str] = None) -> str:
 
 def scan_project(root: Path, out_json_path: Path = None, out_txt_path: Path = None,
                  include_only: Optional[str] = None, include_only_module: Optional[str] = None,
-                 include_only_file_names_in_path: bool = False, scan_area: Optional[str] = None):
+                 include_only_file_names_in_path: bool = False, scan_area: Optional[str] = None,
+                 include_tests: bool = False):
     """
     Scan project and generate outputs with filtering options.
 
@@ -208,6 +210,7 @@ def scan_project(root: Path, out_json_path: Path = None, out_txt_path: Path = No
         include_only_module: Only include files in this module
         include_only_file_names_in_path: If True, only include file names in path (no content)
         scan_area: If specified, only include files in 'frontend' or 'backend'
+        include_tests: If True, include test files in the scan
 
     Returns:
         Dictionary of statistics about the scan
@@ -234,7 +237,8 @@ def scan_project(root: Path, out_json_path: Path = None, out_txt_path: Path = No
         "include_exts": list(include_exts),
         "include_only_module": include_only_module,
         "include_only_file_names_in_path": include_only_file_names_in_path,
-        "scan_area": scan_area
+        "scan_area": scan_area,
+        "include_tests": include_tests
     }
 
     total_files = 0
@@ -277,7 +281,9 @@ def scan_project(root: Path, out_json_path: Path = None, out_txt_path: Path = No
         for fname in sorted(filenames):
             fpath = Path(dirpath) / fname
             rel = fpath.relative_to(root)
-            if is_test_file(rel):
+
+            # Skip test files unless include_tests is True
+            if not include_tests and is_test_file(rel):
                 continue
 
             total_files += 1
@@ -357,6 +363,8 @@ def scan_project(root: Path, out_json_path: Path = None, out_txt_path: Path = No
                 out.write("- Including only file names in path\n")
             if scan_area:
                 out.write(f"- Scan area: {scan_area}\n")
+            if include_tests:
+                out.write("- Including test files\n")
 
             for dir_path in all_directories:
                 out.write(f"[DIR] {dir_path}\n")
@@ -405,6 +413,8 @@ def print_statistics(stats):
         print("- Including only file names in path (no content)")
     if stats['scan_config']['scan_area']:
         print(f"- Scan area: {stats['scan_config']['scan_area']}")
+    if stats['scan_config']['include_tests']:
+        print("- Including test files")
 
     # Print file statistics
     print(f"\nTotal files scanned: {stats['total_files']}")
@@ -447,6 +457,8 @@ if __name__ == '__main__':
                         help='Include only file names grouped by directory path, not content')
     parser.add_argument('-scanArea', choices=['frontend', 'backend'],
                         help='Specify area to scan: frontend or backend')
+    parser.add_argument('-includeTests', action='store_true',
+                        help='Include test files in the scan (normally excluded)')
 
     args = parser.parse_args()
 
@@ -479,7 +491,8 @@ if __name__ == '__main__':
         include_only=args.includeOnly,
         include_only_module=args.includeOnlyModule,
         include_only_file_names_in_path=args.includeOnlyFileNamesInPath,
-        scan_area=args.scanArea
+        scan_area=args.scanArea,
+        include_tests=args.includeTests
     )
 
     # Print statistics
