@@ -67,4 +67,14 @@ public class CartEntity extends BaseEntity {
                 .map(CartItemEntity::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
+
+    /**
+     * Updates the restaurant information for this cart.
+     * @param restaurantId The ID of the restaurant
+     * @param restaurantName The name of the restaurant
+     */
+    public void updateRestaurantInfo(Long restaurantId, String restaurantName) {
+        this.restaurantId = restaurantId;
+        this.restaurantName = restaurantName;
+    }
 }

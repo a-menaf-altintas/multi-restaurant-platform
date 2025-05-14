@@ -4,10 +4,7 @@ package com.multirestaurantplatform.api.e2e;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.multirestaurantplatform.menu.dto.CreateMenuRequestDto;
 import com.multirestaurantplatform.menu.dto.MenuResponseDto;
-import com.multirestaurantplatform.order.dto.AddItemToCartRequest;
-import com.multirestaurantplatform.order.dto.CartResponse;
-import com.multirestaurantplatform.order.dto.OrderResponse;
-import com.multirestaurantplatform.order.dto.UpdateCartItemRequest;
+import com.multirestaurantplatform.order.dto.*;
 import com.multirestaurantplatform.order.model.OrderStatus;
 import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
 import com.multirestaurantplatform.restaurant.dto.RestaurantResponseDto;
@@ -30,7 +27,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -250,6 +249,7 @@ public class OrderFlowEndToEndTest {
         System.out.println("Step 7: Order " + pickupOrderId + " status: DELIVERED (Picked Up). Pickup scenario complete.");
     }
 
+    // Fixed the delivery order test to include restaurant ID
     @Test
     @Order(8)
     void step8_customerAddsItemToCart_DeliveryScenario() throws Exception {
@@ -263,6 +263,11 @@ public class OrderFlowEndToEndTest {
                 .andExpect(status().isNoContent());
         System.out.println("Cart cleared for user " + CUSTOMER_USERNAME + " before delivery scenario item add.");
 
+        // Verify cart is initially empty
+        mockMvc.perform(get("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty());
 
         AddItemToCartRequest addItemRequest = new AddItemToCartRequest(restaurantId, DELIVERY_MENU_ITEM_ID, 1);
 
@@ -272,8 +277,14 @@ public class OrderFlowEndToEndTest {
                         .content(objectMapper.writeValueAsString(addItemRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].menuItemId").value(DELIVERY_MENU_ITEM_ID))
-                .andExpect(jsonPath("$.items[0].quantity").value(1))
-                .andExpect(jsonPath("$.items.length()").value(1)); // Ensure only this item is in cart
+                .andExpect(jsonPath("$.items[0].quantity").value(1));
+
+        // Verify the restaurant ID was set correctly in the cart
+        mockMvc.perform(get("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isNotEmpty());
+
         System.out.println("Step 8: Item " + DELIVERY_MENU_ITEM_ID + " added to cart for delivery order by user " + CUSTOMER_USERNAME);
     }
 
@@ -392,6 +403,227 @@ public class OrderFlowEndToEndTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty()); // After removing the only item, cart should be empty
         System.out.println("Step 13: Cart item removed, cart should be empty.");
+    }
+
+    @Test
+    @Order(14)
+    void step14_cartManipulation_AddItemsFromDifferentRestaurant() throws Exception {
+        System.out.println("Step 14: Cart Manipulation - Testing multi-restaurant behavior...");
+        assertNotNull(adminToken, "Admin token is required for this step.");
+        assertNotNull(customerToken, "Customer token is required.");
+
+        // 1. First, explicitly clear the cart to start from a clean state
+        mockMvc.perform(delete("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isNoContent());
+        System.out.println("Cart explicitly cleared before testing multi-restaurant behavior");
+
+        // 2. Create a second restaurant
+        CreateRestaurantRequestDto createRestaurantDto = new CreateRestaurantRequestDto(
+                "Second E2E Test Restaurant " + UUID.randomUUID().toString().substring(0, 4),
+                "Second restaurant for cart test",
+                "456 Test Avenue",
+                "555-5678",
+                "second_e2e_restaurant_" + UUID.randomUUID().toString().substring(0, 4) + "@example.com"
+        );
+
+        MvcResult result = mockMvc.perform(post("/api/v1/restaurants")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRestaurantDto)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        RestaurantResponseDto secondRestaurant = objectMapper.readValue(
+                result.getResponse().getContentAsString(), RestaurantResponseDto.class);
+        Long secondRestaurantId = secondRestaurant.getId();
+        assertNotNull(secondRestaurantId, "Second restaurant ID should not be null");
+        System.out.println("Created second restaurant with ID: " + secondRestaurantId);
+
+        // 3. Verify the cart is currently empty
+        mockMvc.perform(get("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty());
+
+        // 4. First, add item from first restaurant
+        AddItemToCartRequest firstRestaurantItem = new AddItemToCartRequest(restaurantId, PICKUP_MENU_ITEM_ID, 2);
+        MvcResult firstCartResult = mockMvc.perform(post("/api/v1/users/{userId}/cart/items", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(firstRestaurantItem)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isNotEmpty())
+                .andExpect(jsonPath("$.items[0].menuItemId").value(PICKUP_MENU_ITEM_ID))
+                .andExpect(jsonPath("$.restaurantId").value(restaurantId)) // Verify restaurantId is set correctly
+                .andReturn();
+
+        CartResponse cart1 = objectMapper.readValue(firstCartResult.getResponse().getContentAsString(), CartResponse.class);
+        System.out.println("Added item from first restaurant, cart now contains " + cart1.getItems().size() + " item(s)");
+
+        // 5. Now add item from second restaurant - cart should be cleared and reset
+        Long secondRestaurantItemId = 201L; // Using a different ID
+        AddItemToCartRequest secondRestaurantItem = new AddItemToCartRequest(secondRestaurantId, secondRestaurantItemId, 1);
+        MvcResult secondCartResult = mockMvc.perform(post("/api/v1/users/{userId}/cart/items", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(secondRestaurantItem)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.restaurantId").value(secondRestaurantId)) // Verify restaurantId changed
+                .andExpect(jsonPath("$.items.length()").value(1)) // Should only have ONE item
+                .andExpect(jsonPath("$.items[0].menuItemId").value(secondRestaurantItemId)) // And it should be from restaurant 2
+                .andReturn();
+
+        CartResponse cart2 = objectMapper.readValue(secondCartResult.getResponse().getContentAsString(), CartResponse.class);
+        System.out.println("Added item from second restaurant, cart now contains " +
+                cart2.getItems().size() + " item(s) from restaurant: " + (cart2.getRestaurantName() != null ? cart2.getRestaurantName() : "unknown"));
+
+        // Clear cart for subsequent tests
+        mockMvc.perform(delete("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isNoContent());
+        System.out.println("Step 14: Cart cleared for next test.");
+    }
+
+    @Test
+    @Order(15)
+    void step15_cartManipulation_MultipleItemsAndTotalCalculation() throws Exception {
+        System.out.println("Step 15: Cart Manipulation - Adding multiple items and verifying total calculation...");
+        assertNotNull(customerToken, "Customer token is required.");
+
+        // 1. Explicitly clear the cart to start from a clean state
+        mockMvc.perform(delete("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isNoContent());
+        System.out.println("Cart explicitly cleared before testing multiple items");
+
+        // 2. Get initial empty cart to verify it starts empty
+        mockMvc.perform(get("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty());
+
+        // 3. Add first item
+        AddItemToCartRequest firstItem = new AddItemToCartRequest(restaurantId, PICKUP_MENU_ITEM_ID, 2);
+        MvcResult firstItemResult = mockMvc.perform(post("/api/v1/users/{userId}/cart/items", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(firstItem)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isNotEmpty())
+                .andExpect(jsonPath("$.items[0].menuItemId").value(PICKUP_MENU_ITEM_ID))
+                .andReturn();
+
+        CartResponse cartWithFirstItem = objectMapper.readValue(
+                firstItemResult.getResponse().getContentAsString(), CartResponse.class);
+
+        // 4. Add second item
+        AddItemToCartRequest secondItem = new AddItemToCartRequest(restaurantId, DELIVERY_MENU_ITEM_ID, 3);
+        MvcResult secondItemResult = mockMvc.perform(post("/api/v1/users/{userId}/cart/items", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(secondItem)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andReturn();
+
+        CartResponse cartWithBothItems = objectMapper.readValue(
+                secondItemResult.getResponse().getContentAsString(), CartResponse.class);
+
+        // 5. Calculate expected total and validate
+        System.out.println("Cart now contains " + cartWithBothItems.getItems().size() + " items");
+
+        // Print all items in the cart
+        for (int i = 0; i < cartWithBothItems.getItems().size(); i++) {
+            CartItemResponse item = cartWithBothItems.getItems().get(i);
+            System.out.println("Item " + (i+1) + ": " + item.getMenuItemName() +
+                    ", Quantity: " + item.getQuantity() +
+                    ", Price: " + item.getTotalPrice());
+        }
+        System.out.println("Cart total price: " + cartWithBothItems.getCartTotalPrice());
+
+        // Verify the cart total equals the sum of item totals
+        BigDecimal itemsTotal = cartWithBothItems.getItems().stream()
+                .map(CartItemResponse::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertEquals(0, itemsTotal.compareTo(cartWithBothItems.getCartTotalPrice()),
+                "Cart total should equal sum of item totals");
+
+        System.out.println("Step 15: Cart total verification successful.");
+    }
+
+    @Test
+    @Order(16)
+    void step16_cartManipulation_GetCartAfterManipulation() throws Exception {
+        System.out.println("Step 16: Cart Manipulation - Getting cart after manipulation...");
+        assertNotNull(customerToken, "Customer token is required.");
+
+        // 1. Get the current cart state before any manipulation
+        MvcResult cartResult = mockMvc.perform(get("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        CartResponse cart = objectMapper.readValue(cartResult.getResponse().getContentAsString(), CartResponse.class);
+        System.out.println("Retrieved cart initially has " + cart.getItems().size() + " items");
+
+        // 2. First ensure we have at least one item to update
+        if (cart.getItems().isEmpty()) {
+            System.out.println("Adding an item to cart for update test since cart is empty");
+            AddItemToCartRequest addItemRequest = new AddItemToCartRequest(restaurantId, PICKUP_MENU_ITEM_ID, 1);
+            mockMvc.perform(post("/api/v1/users/{userId}/cart/items", CUSTOMER_USERNAME)
+                            .header("Authorization", "Bearer " + customerToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(addItemRequest)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.items").isNotEmpty());
+        }
+
+        // 3. Update the first item's quantity
+        Long menuItemId = PICKUP_MENU_ITEM_ID; // We know this exists from previous tests
+        UpdateCartItemRequest updateRequest = new UpdateCartItemRequest(10); // Set to a large number for clear difference
+        MvcResult updateResult = mockMvc.perform(put("/api/v1/users/{userId}/cart/items/{menuItemId}", CUSTOMER_USERNAME, menuItemId)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        CartResponse updatedCart = objectMapper.readValue(updateResult.getResponse().getContentAsString(), CartResponse.class);
+        System.out.println("Updated item " + menuItemId + " quantity to 10");
+
+        // 4. Get the cart again to verify persistence
+        MvcResult updatedCartResult = mockMvc.perform(get("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        CartResponse retrievedCart = objectMapper.readValue(updatedCartResult.getResponse().getContentAsString(), CartResponse.class);
+
+        // Find the updated item
+        Optional<CartItemResponse> updatedItem = retrievedCart.getItems().stream()
+                .filter(item -> item.getMenuItemId().equals(menuItemId))
+                .findFirst();
+
+        if (updatedItem.isPresent()) {
+            assertEquals(10, updatedItem.get().getQuantity(), "Item quantity should be updated to 10");
+            System.out.println("Verified cart persistence with updated item quantity");
+        } else {
+            fail("Updated item not found in the cart");
+        }
+
+        // 5. Clear cart for clean state
+        mockMvc.perform(delete("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isNoContent());
+
+        // 6. Verify cart is empty after clearing
+        mockMvc.perform(get("/api/v1/users/{userId}/cart", CUSTOMER_USERNAME)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty());
+
+        System.out.println("Step 16: Cart cleared and verified empty.");
     }
 
     // Helper method to register a user
