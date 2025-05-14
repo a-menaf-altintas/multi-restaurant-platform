@@ -451,6 +451,22 @@ public class MenuControllerIntegrationTest {
                 .andExpect(status().isConflict());
     }
 
+    @Test
+    @DisplayName("PUT /menus/{menuId} - Invalid DTO (e.g., blank name) - Should return 400")
+    void updateMenu_withInvalidDto_shouldReturn400() throws Exception {
+        MenuResponseDto menu = createMenuDirectly("Menu To Update With Invalid Data", "Desc", restaurantIdA, masterAdminToken);
+        UpdateMenuRequestDto invalidUpdateDto = new UpdateMenuRequestDto("", "New Description", true); // Blank name
+
+        mockMvc.perform(put("/api/v1/menus/" + menu.getId())
+                        .header("Authorization", "Bearer " + masterAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidUpdateDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON)) // Ensure you expect JSON
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.errors", hasItem(containsString("Menu name must be between 2 and 100 characters"))));
+    }
+
 
     // --- Test Cases for DELETE /api/v1/menus/{menuId} ---
     @Test
