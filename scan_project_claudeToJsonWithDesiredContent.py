@@ -21,6 +21,9 @@ Usage examples:
   python3 scan_project_claudeToJson.py -includeOnlyFileNamesInPath      # Only file names in path, no content
   python3 scan_project_claudeToJson.py -scanArea frontend        # Only scan frontend folder
   python3 scan_project_claudeToJson.py -scanArea backend         # Only scan backend folder
+
+  # Include tests
+  python3 scan_project_claudeToJsonWithDesiredContent.py -scanArea backend -includeOnly .java -includeOnlyFileNamesInPath -includeTests
 """
 from __future__ import annotations
 import os
