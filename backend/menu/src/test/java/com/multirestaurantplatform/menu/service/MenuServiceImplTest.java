@@ -1,5 +1,5 @@
 // File: backend/menu/src/test/java/com/multirestaurantplatform/menu/service/MenuServiceImplTest.java
-package com.multirestaurantplatform.menu.service;
+package com.multirestaurantplatform.menu.service; // Assuming this is correct based on your previous file
 
 import com.multirestaurantplatform.common.exception.ConflictException;
 import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
@@ -39,7 +39,7 @@ class MenuServiceImplTest {
     private RestaurantRepository restaurantRepository;
 
     @InjectMocks
-    private MenuServiceImpl menuService;
+    private MenuServiceImpl menuService; // Corrected to MenuServiceImpl from your service file
 
     private Restaurant testRestaurant;
     private Menu testMenu;
@@ -83,6 +83,8 @@ class MenuServiceImplTest {
             savedMenu.setId(11L); // Simulate ID generation
             savedMenu.setCreatedAt(Instant.now());
             savedMenu.setUpdatedAt(Instant.now());
+            // Ensure the restaurant object is correctly associated in the entity being saved
+            savedMenu.setRestaurant(testRestaurant);
             return savedMenu;
         });
 
@@ -95,7 +97,7 @@ class MenuServiceImplTest {
         assertEquals(createMenuRequestDto.getDescription(), result.getDescription());
         assertEquals(createMenuRequestDto.getRestaurantId(), result.getRestaurantId());
         assertTrue(result.isActive());
-        assertNotNull(result.getId());
+        assertEquals(11L, result.getId()); // Check the specific ID
         verify(restaurantRepository).findById(createMenuRequestDto.getRestaurantId());
         verify(menuRepository).findByRestaurantIdAndNameIgnoreCase(createMenuRequestDto.getRestaurantId(), createMenuRequestDto.getName());
         verify(menuRepository).save(any(Menu.class));
@@ -110,7 +112,7 @@ class MenuServiceImplTest {
         // Act & Assert
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                 () -> menuService.createMenu(createMenuRequestDto));
-        assertTrue(exception.getMessage().contains("Restaurant not found"));
+        assertTrue(exception.getMessage().contains("Restaurant not found with ID: " + createMenuRequestDto.getRestaurantId()));
         verify(restaurantRepository).findById(createMenuRequestDto.getRestaurantId());
         verify(menuRepository, never()).findByRestaurantIdAndNameIgnoreCase(anyLong(), anyString());
         verify(menuRepository, never()).save(any(Menu.class));
@@ -121,13 +123,19 @@ class MenuServiceImplTest {
     void createMenu_whenMenuNameExistsForRestaurant_shouldThrowConflictException() {
         // Arrange
         when(restaurantRepository.findById(createMenuRequestDto.getRestaurantId())).thenReturn(Optional.of(testRestaurant));
+        // Use a new menu instance for the conflict to avoid modifying testMenu from setUp if it's used elsewhere
+        Menu existingMenuWithSameName = new Menu();
+        existingMenuWithSameName.setId(12L); // Different ID
+        existingMenuWithSameName.setName(createMenuRequestDto.getName());
+        existingMenuWithSameName.setRestaurant(testRestaurant);
+
         when(menuRepository.findByRestaurantIdAndNameIgnoreCase(createMenuRequestDto.getRestaurantId(), createMenuRequestDto.getName()))
-                .thenReturn(Optional.of(testMenu)); // Existing menu with same name
+                .thenReturn(Optional.of(existingMenuWithSameName));
 
         // Act & Assert
         ConflictException exception = assertThrows(ConflictException.class,
                 () -> menuService.createMenu(createMenuRequestDto));
-        assertTrue(exception.getMessage().contains("already exists for this restaurant"));
+        assertTrue(exception.getMessage().contains("Menu with name '" + createMenuRequestDto.getName() + "' already exists for this restaurant."));
         verify(restaurantRepository).findById(createMenuRequestDto.getRestaurantId());
         verify(menuRepository).findByRestaurantIdAndNameIgnoreCase(createMenuRequestDto.getRestaurantId(), createMenuRequestDto.getName());
         verify(menuRepository, never()).save(any(Menu.class));
@@ -148,6 +156,7 @@ class MenuServiceImplTest {
         assertNotNull(result);
         assertEquals(testMenu.getId(), result.getId());
         assertEquals(testMenu.getName(), result.getName());
+        assertEquals(testRestaurant.getId(), result.getRestaurantId());
         verify(menuRepository).findById(testMenu.getId());
     }
 
@@ -161,9 +170,27 @@ class MenuServiceImplTest {
         // Act & Assert
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                 () -> menuService.findMenuById(nonExistentMenuId));
-        assertTrue(exception.getMessage().contains("Menu not found with ID: " + nonExistentMenuId));
+        assertEquals("Menu not found with ID: " + nonExistentMenuId, exception.getMessage());
         verify(menuRepository).findById(nonExistentMenuId);
     }
+
+    @Test
+    @DisplayName("findMenuById - Success with Null Restaurant in Menu (Mapper Test)")
+    void findMenuById_whenMenuHasNullRestaurant_mapsRestaurantIdToNull() {
+        // Arrange
+        testMenu.setRestaurant(null); // Key part for this test
+        when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
+
+        // Act
+        MenuResponseDto result = menuService.findMenuById(testMenu.getId());
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(testMenu.getId(), result.getId());
+        assertNull(result.getRestaurantId()); // Verify mapper handled null restaurant
+        verify(menuRepository).findById(testMenu.getId());
+    }
+
 
     // --- Test cases for findMenusByRestaurantId ---
 
@@ -218,6 +245,49 @@ class MenuServiceImplTest {
         verify(menuRepository).findByRestaurantIdAndIsActiveTrue(testRestaurant.getId());
     }
 
+    @Test
+    @DisplayName("findActiveMenusByRestaurantId - Success with No Active Menus")
+    void findActiveMenusByRestaurantId_whenRestaurantHasNoActiveMenus_shouldReturnEmptyList() {
+        // Arrange
+        when(menuRepository.findByRestaurantIdAndIsActiveTrue(testRestaurant.getId())).thenReturn(Collections.emptyList());
+
+        // Act
+        List<MenuResponseDto> results = menuService.findActiveMenusByRestaurantId(testRestaurant.getId());
+
+        // Assert
+        assertNotNull(results);
+        assertTrue(results.isEmpty());
+        verify(menuRepository).findByRestaurantIdAndIsActiveTrue(testRestaurant.getId());
+    }
+
+    @Test
+    @DisplayName("findActiveMenusByRestaurantId - Success with Mixed Active/Inactive Menus")
+    void findActiveMenusByRestaurantId_whenRestaurantHasMixedMenus_shouldReturnOnlyActiveMenus() {
+        // Arrange
+        Menu activeMenu1 = new Menu(); // Using a fresh instance for clarity
+        activeMenu1.setId(testMenu.getId()); // Can reuse ID if it helps, or new ID
+        activeMenu1.setName(testMenu.getName());
+        activeMenu1.setActive(true);
+        activeMenu1.setRestaurant(testRestaurant);
+        activeMenu1.setCreatedAt(Instant.now());
+        activeMenu1.setUpdatedAt(Instant.now());
+
+        // The service method findByRestaurantIdAndIsActiveTrue should handle the filtering,
+        // so we just mock its result.
+        when(menuRepository.findByRestaurantIdAndIsActiveTrue(testRestaurant.getId())).thenReturn(List.of(activeMenu1));
+
+        // Act
+        List<MenuResponseDto> results = menuService.findActiveMenusByRestaurantId(testRestaurant.getId());
+
+        // Assert
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        assertEquals(activeMenu1.getName(), results.get(0).getName());
+        assertTrue(results.get(0).isActive());
+        verify(menuRepository).findByRestaurantIdAndIsActiveTrue(testRestaurant.getId());
+    }
+
+
     // --- Test cases for updateMenu ---
 
     @Test
@@ -227,11 +297,22 @@ class MenuServiceImplTest {
         updateMenuRequestDto.setName("Updated Lunch Menu");
         updateMenuRequestDto.setDescription("New delicious lunch options");
         updateMenuRequestDto.setIsActive(false);
+        String originalMenuName = testMenu.getName(); // Store before potential modification
+
+        // Ensure the menu being updated has a different name initially if testing name change logic thoroughly
+        testMenu.setName("Original Name For Full Update Test");
+
 
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
+        // Mock no conflict for the new name
         when(menuRepository.findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), "Updated Lunch Menu"))
-                .thenReturn(Optional.empty()); // No conflict with new name
-        when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
+                .thenReturn(Optional.empty());
+        when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> {
+            Menu savedMenu = invocation.getArgument(0);
+            // Simulate timestamp update by service/JPA
+            savedMenu.setUpdatedAt(Instant.now().plusSeconds(1));
+            return savedMenu;
+        });
 
         // Act
         MenuResponseDto result = menuService.updateMenu(testMenu.getId(), updateMenuRequestDto);
@@ -243,7 +324,7 @@ class MenuServiceImplTest {
         assertFalse(result.isActive());
         verify(menuRepository).findById(testMenu.getId());
         verify(menuRepository).findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), "Updated Lunch Menu");
-        verify(menuRepository).save(testMenu); // Ensure the same menu object is saved
+        verify(menuRepository).save(testMenu);
     }
 
     @Test
@@ -263,12 +344,12 @@ class MenuServiceImplTest {
         // Act & Assert
         ConflictException exception = assertThrows(ConflictException.class,
                 () -> menuService.updateMenu(testMenu.getId(), updateMenuRequestDto));
-        assertTrue(exception.getMessage().contains("Another menu with name 'Conflicting Menu Name' already exists"));
+        assertEquals("Another menu with name 'Conflicting Menu Name' already exists for this restaurant.", exception.getMessage());
         verify(menuRepository).findById(testMenu.getId());
         verify(menuRepository).findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), "Conflicting Menu Name");
         verify(menuRepository, never()).save(any(Menu.class));
     }
-    
+
     @Test
     @DisplayName("updateMenu - Update Only Description")
     void updateMenu_whenOnlyDescriptionProvided_shouldUpdateOnlyDescription() {
@@ -307,10 +388,90 @@ class MenuServiceImplTest {
         // Act & Assert
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                 () -> menuService.updateMenu(nonExistentMenuId, updateMenuRequestDto));
-        assertTrue(exception.getMessage().contains("Menu not found with ID: " + nonExistentMenuId));
+        assertEquals("Menu not found with ID: " + nonExistentMenuId, exception.getMessage());
         verify(menuRepository).findById(nonExistentMenuId);
         verify(menuRepository, never()).save(any(Menu.class));
     }
+
+    @Test
+    @DisplayName("updateMenu - Update Only IsActive Status")
+    void updateMenu_whenOnlyIsActiveProvided_shouldUpdateOnlyIsActive() {
+        // Arrange
+        updateMenuRequestDto.setIsActive(false); // TestMenu is active (true) by default in setUp
+
+        String originalName = testMenu.getName();
+        String originalDescription = testMenu.getDescription();
+
+        when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
+        when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        MenuResponseDto result = menuService.updateMenu(testMenu.getId(), updateMenuRequestDto);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(originalName, result.getName());
+        assertEquals(originalDescription, result.getDescription());
+        assertFalse(result.isActive()); // IsActive should be updated
+        verify(menuRepository).findById(testMenu.getId());
+        verify(menuRepository, never()).findByRestaurantIdAndNameIgnoreCase(anyLong(), anyString());
+        verify(menuRepository).save(testMenu);
+    }
+
+    @Test
+    @DisplayName("updateMenu - Update Name to Same Name (Case Insensitive)")
+    void updateMenu_whenNewNameIsSameAsOldNameIgnoreCase_shouldNotUpdateNameAndNotTriggerConflictCheck() {
+        // Arrange
+        String originalName = testMenu.getName(); // e.g., "Lunch Menu"
+        updateMenuRequestDto.setName(originalName.toUpperCase()); // e.g., "LUNCH MENU"
+
+        when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
+        when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        MenuResponseDto result = menuService.updateMenu(testMenu.getId(), updateMenuRequestDto);
+
+        // Assert
+        assertNotNull(result);
+        // Name should remain unchanged because the service logic skips menu.setName() if
+        // newName.equalsIgnoreCase(menu.getName()) is true.
+        assertEquals(originalName, result.getName());
+        // The conflict check should be skipped because of the same condition.
+        verify(menuRepository, never()).findByRestaurantIdAndNameIgnoreCase(
+                eq(testRestaurant.getId()),
+                anyString() // Could be more specific with eq(updateMenuRequestDto.getName()) if needed
+        );
+        verify(menuRepository).save(testMenu); // Save is still called
+    }
+
+    @Test
+    @DisplayName("updateMenu - Name Conflict Check Finds Same Menu")
+    void updateMenu_whenNameConflictCheckFindsItself_shouldNotThrowConflictAndAllowUpdate() {
+        // Arrange
+        String newName = "Slightly New Name";
+        testMenu.setName("Original Name For This Test"); // Ensure current name is different for the test
+        updateMenuRequestDto.setName(newName);
+
+
+        when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
+        // Simulate findByRestaurantIdAndNameIgnoreCase returning the *same* menu being updated
+        when(menuRepository.findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), newName))
+                .thenReturn(Optional.of(testMenu)); // It found itself
+        when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        MenuResponseDto result = menuService.updateMenu(testMenu.getId(), updateMenuRequestDto);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(newName, result.getName()); // Name should be updated
+        verify(menuRepository).findById(testMenu.getId());
+        // This IS called because newName is different from original name (ignoring case)
+        verify(menuRepository).findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), newName);
+        verify(menuRepository).save(testMenu);
+        // No ConflictException should be thrown
+    }
+
 
     // --- Test cases for deleteMenu (Soft Delete) ---
 
@@ -333,10 +494,9 @@ class MenuServiceImplTest {
 
     @Test
     @DisplayName("deleteMenu - Menu Already Inactive")
-    void deleteMenu_whenMenuExistsAndIsAlreadyInactive_shouldStillSave() {
+    void deleteMenu_whenMenuExistsAndIsAlreadyInactive_shouldStillSaveAndRemainInactive() {
         // Arrange
         testMenu.setActive(false); // Pre-condition
-        assertFalse(testMenu.isActive());
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
         when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -345,8 +505,8 @@ class MenuServiceImplTest {
 
         // Assert
         verify(menuRepository).findById(testMenu.getId());
-        verify(menuRepository).save(testMenu); // Still saves to ensure idempotency or if other logic was present
-        assertFalse(testMenu.isActive());
+        verify(menuRepository).save(testMenu);
+        assertFalse(testMenu.isActive()); // Should remain inactive
     }
 
     @Test
@@ -359,7 +519,7 @@ class MenuServiceImplTest {
         // Act & Assert
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                 () -> menuService.deleteMenu(nonExistentMenuId));
-        assertTrue(exception.getMessage().contains("Menu not found with ID: " + nonExistentMenuId));
+        assertEquals("Menu not found with ID: " + nonExistentMenuId, exception.getMessage());
         verify(menuRepository).findById(nonExistentMenuId);
         verify(menuRepository, never()).save(any(Menu.class));
     }
