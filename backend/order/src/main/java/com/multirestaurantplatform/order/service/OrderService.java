@@ -76,4 +76,30 @@ public interface OrderService {
      * @return A DTO containing various order statistics
      */
     OrderStatisticsResponseDto getOrderStatisticsForCustomer(Long customerId);
+
+    // --- New Methods for Payment Processing ---
+    /**
+     * Processes a successful payment for an order.
+     * Updates the order status (e.g., to PLACED or PAID) and stores payment details.
+     *
+     * @param orderId The ID of the order.
+     * @param paymentIntentId The Stripe PaymentIntent ID.
+     * @return The updated Order entity.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if order not found.
+     * @throws com.multirestaurantplatform.order.exception.IllegalOrderStateException if order is not in a valid state for payment success.
+     */
+    Order processPaymentSuccess(Long orderId, String paymentIntentId);
+
+    /**
+     * Processes a failed payment for an order.
+     * Updates the order status (e.g., to FAILED) and stores failure details.
+     *
+     * @param orderId The ID of the order.
+     * @param paymentIntentId The Stripe PaymentIntent ID (can be null if PI creation failed).
+     * @param failureReason A description of why the payment failed.
+     * @return The updated Order entity.
+     * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if order not found.
+     */
+    Order processPaymentFailure(Long orderId, String paymentIntentId, String failureReason);
+    // ----------------------------------------
 }

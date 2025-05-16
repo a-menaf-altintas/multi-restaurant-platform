@@ -3,7 +3,7 @@ package com.multirestaurantplatform.order.dto;
 
 import com.multirestaurantplatform.order.model.Order;
 import com.multirestaurantplatform.order.model.OrderStatus;
-import lombok.AllArgsConstructor;
+import lombok.AllArgsConstructor; // Keep or adjust based on constructor needs
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @Getter
 @Setter
 @NoArgsConstructor
-// Update AllArgsConstructor or add a new constructor if you prefer manual control
+// Remove @AllArgsConstructor or ensure it includes new fields, or use manual constructor
 public class OrderResponse {
 
     private Long id;
@@ -35,18 +35,24 @@ public class OrderResponse {
     private LocalDateTime confirmedAt;
     private LocalDateTime preparingAt;
     private LocalDateTime readyAt;
-    private LocalDateTime outForDeliveryAt; // New field
+    private LocalDateTime outForDeliveryAt;
     private LocalDateTime deliveredAt;
     private LocalDateTime cancelledAt;
     private List<OrderItemResponse> orderItems;
 
-    // Manual constructor to include the new field
+    // --- New Fields ---
+    private String paymentIntentId;
+    private String paymentStatusDetail;
+    // --------------------
+
+    // Manual constructor updated to include new fields
     public OrderResponse(Long id, Long customerId, Long restaurantId, OrderStatus status, BigDecimal totalPrice,
                          String deliveryAddressLine1, String deliveryCity, String deliveryPostalCode,
                          String customerContactNumber, String specialInstructions, LocalDateTime createdAt,
                          LocalDateTime updatedAt, LocalDateTime placedAt, LocalDateTime confirmedAt,
                          LocalDateTime preparingAt, LocalDateTime readyAt, LocalDateTime outForDeliveryAt,
-                         LocalDateTime deliveredAt, LocalDateTime cancelledAt, List<OrderItemResponse> orderItems) {
+                         LocalDateTime deliveredAt, LocalDateTime cancelledAt, List<OrderItemResponse> orderItems,
+                         String paymentIntentId, String paymentStatusDetail) { // Added new params
         this.id = id;
         this.customerId = customerId;
         this.restaurantId = restaurantId;
@@ -67,10 +73,11 @@ public class OrderResponse {
         this.deliveredAt = deliveredAt;
         this.cancelledAt = cancelledAt;
         this.orderItems = orderItems;
+        this.paymentIntentId = paymentIntentId; // Assign new field
+        this.paymentStatusDetail = paymentStatusDetail; // Assign new field
     }
 
 
-    // Static factory method to convert Order entity to OrderResponse DTO
     public static OrderResponse fromEntity(Order order) {
         if (order == null) {
             return null;
@@ -96,10 +103,12 @@ public class OrderResponse {
                 order.getConfirmedAt(),
                 order.getPreparingAt(),
                 order.getReadyAt(),
-                order.getOutForDeliveryAt(), // Include new field
+                order.getOutForDeliveryAt(),
                 order.getDeliveredAt(),
                 order.getCancelledAt(),
-                itemResponses
+                itemResponses,
+                order.getPaymentIntentId(),         // Include new field
+                order.getPaymentStatusDetail()      // Include new field
         );
     }
 }

@@ -1,22 +1,25 @@
 package com.multirestaurantplatform.payment.service.impl;
 
+import com.multirestaurantplatform.order.service.OrderService; // Import OrderService
 import com.multirestaurantplatform.payment.service.StripeService;
 import com.stripe.Stripe;
-import com.stripe.exception.SignatureVerificationException; // Stripe's exception
+import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
-import com.stripe.model.StripeObject; // For deserialized object
-import com.stripe.net.Webhook; // For signature verification
+import com.stripe.model.StripeObject;
+import com.stripe.net.Webhook;
 import com.stripe.param.PaymentIntentCreateParams;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor; // Added for constructor injection
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor // Added for constructor injection of OrderService
 public class StripeServiceImpl implements StripeService {
 
     private static final Logger logger = LoggerFactory.getLogger(StripeServiceImpl.class);
@@ -24,8 +27,10 @@ public class StripeServiceImpl implements StripeService {
     @Value("${stripe.secret.key}")
     private String secretKey;
 
-    @Value("${stripe.webhook.secret}") // Inject the webhook secret
+    @Value("${stripe.webhook.secret}")
     private String webhookSecret;
+
+    private final OrderService orderService; // Inject OrderService
 
     @PostConstruct
     public void init() {
@@ -45,7 +50,7 @@ public class StripeServiceImpl implements StripeService {
     @Override
     public String createPaymentIntent(long amount, String currency, String orderId, String customerEmail)
             throws PaymentProcessingException {
-        // ... (existing createPaymentIntent method from previous step - no changes here) ...
+        // ... (existing createPaymentIntent method - no changes needed here) ...
         try {
             logger.info("Attempting to create PaymentIntent for orderId: {}, amount: {}, currency: {}, customerEmail: {}",
                     orderId, amount, currency, customerEmail);
@@ -57,7 +62,7 @@ public class StripeServiceImpl implements StripeService {
                             PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                                     .setEnabled(true)
                                     .build())
-                    .putMetadata("order_id", orderId)
+                    .putMetadata("order_id", orderId) // Ensure orderId is a String here
                     .putMetadata("customer_email_for_order", customerEmail)
                     .setReceiptEmail(customerEmail);
 
@@ -86,13 +91,11 @@ public class StripeServiceImpl implements StripeService {
             throws SignatureVerificationException, PaymentProcessingException {
         Event event;
         try {
-            // Verify the signature and construct the event object
-            // This will throw SignatureVerificationException if verification fails
             event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
         } catch (SignatureVerificationException e) {
             logger.error("Webhook error: Invalid Stripe signature. Message: {}", e.getMessage());
-            throw e; // Re-throw for the controller to handle as a specific error (e.g., HTTP 400)
-        } catch (Exception e) { // Catches JsonSyntaxException etc.
+            throw e;
+        } catch (Exception e) {
             logger.error("Webhook error: Could not parse payload or other construction error. Message: {}", e.getMessage());
             throw new PaymentProcessingException("Error constructing webhook event: " + e.getMessage(), e);
         }
@@ -102,48 +105,65 @@ public class StripeServiceImpl implements StripeService {
         if (dataObjectDeserializer.getObject().isPresent()) {
             stripeObject = dataObjectDeserializer.getObject().get();
         } else {
-            // Deserialization failed, probably due to API version mismatch or an issue with the data
             logger.warn("Webhook warning: Deserialization of event data object failed for event ID: {} Type: {}", event.getId(), event.getType());
-            // Depending on the event type, you might still be able to proceed or might need to log and ignore
         }
 
         logger.info("Received Stripe Event: Id='{}', Type='{}', Livemode='{}'", event.getId(), event.getType(), event.getLivemode());
 
-        // Handle the event
         switch (event.getType()) {
             case "payment_intent.succeeded":
-                PaymentIntent paymentIntentSucceeded = (PaymentIntent) stripeObject;
-                if (paymentIntentSucceeded != null) {
+                if (stripeObject instanceof PaymentIntent) {
+                    PaymentIntent paymentIntentSucceeded = (PaymentIntent) stripeObject;
+                    String orderId = paymentIntentSucceeded.getMetadata().get("order_id");
+                    String piId = paymentIntentSucceeded.getId();
                     logger.info("PaymentIntent Succeeded: ID={}, Amount={}, OrderID (from metadata)={}",
-                            paymentIntentSucceeded.getId(),
-                            paymentIntentSucceeded.getAmount(),
-                            paymentIntentSucceeded.getMetadata().get("order_id"));
-                    // TODO:
-                    // 1. Retrieve your internal order using paymentIntentSucceeded.getMetadata().get("order_id")
-                    // 2. Mark the order as paid/processing.
-                    // 3. Fulfill the order (e.g., notify restaurant, etc.).
-                    // 4. Ensure this is idempotent (e.g., check if order already marked as paid).
+                            piId, paymentIntentSucceeded.getAmount(), orderId);
+
+                    if (orderId != null) {
+                        try {
+                            orderService.processPaymentSuccess(Long.parseLong(orderId), piId);
+                            logger.info("OrderService successfully processed payment success for orderId: {}", orderId);
+                        } catch (NumberFormatException e) {
+                            logger.error("Error parsing orderId '{}' from PaymentIntent metadata for PI ID: {}", orderId, piId, e);
+                        } catch (Exception e) { // Catch exceptions from OrderService
+                            logger.error("Error calling OrderService.processPaymentSuccess for orderId: {}, PI ID: {}. Error: {}", orderId, piId, e.getMessage(), e);
+                            // Decide if this should re-throw or if Stripe should still get a 200 OK because webhook was valid.
+                            // For now, we log and let Stripe get 200 OK for a valid event.
+                        }
+                    } else {
+                        logger.warn("PaymentIntent Succeeded (PI ID: {}) but order_id was missing from metadata.", piId);
+                    }
                 } else {
-                    logger.warn("payment_intent.succeeded event for event ID: {} but StripeObject was null after deserialization.", event.getId());
+                    logger.warn("payment_intent.succeeded event for event ID: {} but StripeObject was not a PaymentIntent or was null after deserialization.", event.getId());
                 }
                 break;
+
             case "payment_intent.payment_failed":
-                PaymentIntent paymentIntentFailed = (PaymentIntent) stripeObject;
-                if (paymentIntentFailed != null) {
+                if (stripeObject instanceof PaymentIntent) {
+                    PaymentIntent paymentIntentFailed = (PaymentIntent) stripeObject;
+                    String orderId = paymentIntentFailed.getMetadata().get("order_id");
+                    String piId = paymentIntentFailed.getId();
+                    String failureReason = paymentIntentFailed.getLastPaymentError() != null ? paymentIntentFailed.getLastPaymentError().getMessage() : "N/A";
                     logger.info("PaymentIntent Failed: ID={}, OrderID (from metadata)={}, FailureReason={}",
-                            paymentIntentFailed.getId(),
-                            paymentIntentFailed.getMetadata().get("order_id"),
-                            paymentIntentFailed.getLastPaymentError() != null ? paymentIntentFailed.getLastPaymentError().getMessage() : "N/A");
-                    // TODO:
-                    // 1. Retrieve your internal order.
-                    // 2. Mark the order as payment failed.
-                    // 3. Notify the customer.
+                            piId, orderId, failureReason);
+
+                    if (orderId != null) {
+                        try {
+                            orderService.processPaymentFailure(Long.parseLong(orderId), piId, failureReason);
+                            logger.info("OrderService successfully processed payment failure for orderId: {}", orderId);
+                        } catch (NumberFormatException e) {
+                            logger.error("Error parsing orderId '{}' from PaymentIntent metadata for PI ID: {}", orderId, piId, e);
+                        } catch (Exception e) { // Catch exceptions from OrderService
+                            logger.error("Error calling OrderService.processPaymentFailure for orderId: {}, PI ID: {}. Error: {}", orderId, piId, e.getMessage(), e);
+                        }
+                    } else {
+                        logger.warn("PaymentIntent Failed (PI ID: {}) but order_id was missing from metadata.", piId);
+                    }
                 } else {
-                    logger.warn("payment_intent.payment_failed event for event ID: {} but StripeObject was null after deserialization.", event.getId());
+                    logger.warn("payment_intent.payment_failed event for event ID: {} but StripeObject was not a PaymentIntent or was null after deserialization.", event.getId());
                 }
                 break;
-            // ... handle other event types as needed ...
-            // e.g., charge.succeeded, checkout.session.completed (if using Stripe Checkout)
+
             default:
                 logger.warn("Unhandled Stripe event type: {}", event.getType());
         }

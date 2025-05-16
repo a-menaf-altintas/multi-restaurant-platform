@@ -7,7 +7,7 @@ description = 'The payment module'
 
 dependencies {
     // Stripe Java SDK
-    implementation 'com.stripe:stripe-java:29.1.0' // User updated to this version
+    implementation 'com.stripe:stripe-java:29.1.0'
 
     // Provides core Spring Framework features
     implementation 'org.springframework.boot:spring-boot-starter'
@@ -15,24 +15,27 @@ dependencies {
     // For Spring MVC and REST controller capabilities
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
-    // For Jakarta Validation API (e.g., @NotBlank, @Min)
+    // For Jakarta Validation API
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // --- Add Spring Security for @PreAuthorize and method security ---
+    // For Spring Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
-    // --- Add SpringDoc OpenAPI for Swagger annotations like @Tag, @Operation, @SecurityRequirement ---
-    // Version should ideally be managed by the root project's dependencyManagement or BOM
-    // For now, let's use a common recent version. Check your other modules for consistency.
+    // For SpringDoc OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
 
+    // Dependency on the order module
+    implementation project(':backend:order')
 
-    // Lombok (managed by root project's subprojects configuration)
+    // --- Add Jakarta Persistence API for JPA annotations ---
+    api 'jakarta.persistence:jakarta.persistence-api'
+    // Using 'api' so if this module exports types using these annotations, consumers see them.
+    // 'implementation' would also work if only used internally.
+    // ----------------------------------------------------
+
+    // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
-
-    // If this module eventually needs to interact with 'common' module entities or exceptions:
-    // implementation project(':backend:common')
 }

@@ -183,8 +183,9 @@ class OrderServiceImplTest {
             assertNotNull(placedOrder);
             assertEquals(customerUserEntity.getId(), placedOrder.getCustomerId());
             assertEquals(DEFAULT_RESTAURANT_ID, placedOrder.getRestaurantId());
-            assertEquals(OrderStatus.PLACED, placedOrder.getStatus());
-            assertNotNull(placedOrder.getPlacedAt());
+            // Updated expectation to PENDING_PAYMENT instead of PLACED
+            assertEquals(OrderStatus.PENDING_PAYMENT, placedOrder.getStatus());
+            // Note: placedAt might not be set until status becomes PLACED
             assertEquals(new BigDecimal("20.00"), placedOrder.getTotalPrice());
             assertEquals(1, placedOrder.getOrderItems().size());
             assertEquals("Burger", placedOrder.getOrderItems().get(0).getMenuItemName());
@@ -211,7 +212,8 @@ class OrderServiceImplTest {
             // Assert (similar to above)
             assertNotNull(placedOrder);
             assertEquals(customerUserEntity.getId(), placedOrder.getCustomerId());
-            assertEquals(OrderStatus.PLACED, placedOrder.getStatus());
+            // Updated expectation to PENDING_PAYMENT instead of PLACED
+            assertEquals(OrderStatus.PENDING_PAYMENT, placedOrder.getStatus());
             verify(cartService).clearCart(CUSTOMER_USERNAME);
         }
 
@@ -286,7 +288,8 @@ class OrderServiceImplTest {
 
             // Assert
             assertNotNull(placedOrder); // Order should still be placed
-            assertEquals(OrderStatus.PLACED, placedOrder.getStatus());
+            // Updated expectation to PENDING_PAYMENT instead of PLACED
+            assertEquals(OrderStatus.PENDING_PAYMENT, placedOrder.getStatus());
             verify(orderRepository).save(any(Order.class));
             verify(cartService).clearCart(CUSTOMER_USERNAME); // Verify clearCart was called
             // Check logs manually or use a log appender if strict log verification is needed.

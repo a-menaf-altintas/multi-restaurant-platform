@@ -57,6 +57,14 @@ public class Order {
     @Column(length = 500)
     private String specialInstructions;
 
+    // --- New Payment-Related Fields ---
+    @Column(length = 255, name = "payment_intent_id", unique = true, nullable = true) // Stripe PaymentIntent ID
+    private String paymentIntentId;
+
+    @Column(length = 500, name = "payment_status_detail", nullable = true) // e.g., reason for payment failure
+    private String paymentStatusDetail;
+    // ------------------------------------
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -323,6 +331,13 @@ public class Order {
     public void setCancelledAt(LocalDateTime cancelledAt) {
         this.cancelledAt = cancelledAt;
     }
+
+    // --- Getters and Setters for New Fields ---
+    public String getPaymentIntentId() { return paymentIntentId; }
+    public void setPaymentIntentId(String paymentIntentId) { this.paymentIntentId = paymentIntentId; }
+    public String getPaymentStatusDetail() { return paymentStatusDetail; }
+    public void setPaymentStatusDetail(String paymentStatusDetail) { this.paymentStatusDetail = paymentStatusDetail; }
+    // -------------------------------------------
 
     // equals, hashCode, toString
 

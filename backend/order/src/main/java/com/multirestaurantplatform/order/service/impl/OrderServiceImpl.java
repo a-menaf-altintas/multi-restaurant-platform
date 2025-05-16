@@ -1,27 +1,26 @@
-// File: backend/order/src/main/java/com/multirestaurantplatform/order/service/impl/OrderServiceImpl.java
 package com.multirestaurantplatform.order.service.impl;
 
 import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
 import com.multirestaurantplatform.order.dto.CartItemResponse;
 import com.multirestaurantplatform.order.dto.CartResponse;
+import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
 import com.multirestaurantplatform.order.exception.IllegalOrderStateException;
 import com.multirestaurantplatform.order.model.Order;
 import com.multirestaurantplatform.order.model.OrderItem;
 import com.multirestaurantplatform.order.model.OrderStatus;
 import com.multirestaurantplatform.order.repository.OrderRepository;
-import com.multirestaurantplatform.order.service.CartService; // Import CartService
+import com.multirestaurantplatform.order.service.CartService;
 import com.multirestaurantplatform.order.service.OrderService;
 import com.multirestaurantplatform.restaurant.model.Restaurant;
 import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
-import com.multirestaurantplatform.security.model.Role; // Import Role
+import com.multirestaurantplatform.security.model.Role;
 import com.multirestaurantplatform.security.model.User;
 import com.multirestaurantplatform.security.repository.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,16 +30,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.List;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.multirestaurantplatform.order.dto.OrderStatisticsResponseDto;
-import com.multirestaurantplatform.restaurant.model.Restaurant;
 
 @Service
 @RequiredArgsConstructor
@@ -51,15 +46,14 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final RestaurantRepository restaurantRepository;
     private final UserRepository userRepository;
-    private final CartService cartService; // Inject CartService
+    private final CartService cartService;
 
     @Override
     @Transactional
     public Order placeOrderFromCart(String userIdFromPath, UserDetails principal) {
         LOGGER.info("Attempting to place order from cart for user ID path: {} by principal: {}", userIdFromPath, principal.getUsername());
 
-        // 1. Authorize the action
-        User customer = userRepository.findByUsername(userIdFromPath) // Assuming userIdFromPath is the username
+        User customer = userRepository.findByUsername(userIdFromPath)
                 .orElseThrow(() -> new ResourceNotFoundException("User with username " + userIdFromPath + " not found."));
 
         boolean isAdmin = principal.getAuthorities().stream()
@@ -72,11 +66,8 @@ public class OrderServiceImpl implements OrderService {
         }
         LOGGER.info("User {} authorized to place order for user ID path: {}", principal.getUsername(), userIdFromPath);
 
-        // 2. Retrieve the cart
-        // The userId for cartService should be the actual username/identifier used by CartService
-        CartResponse cartResponse = cartService.getCart(customer.getUsername()); // Use customer's username
+        CartResponse cartResponse = cartService.getCart(customer.getUsername());
 
-        // 3. Validate the cart
         if (cartResponse == null || CollectionUtils.isEmpty(cartResponse.getItems())) {
             LOGGER.warn("Order placement failed: Cart for user {} is empty or not found.", customer.getUsername());
             throw new IllegalOrderStateException("Cannot place order: Cart is empty.");
@@ -86,17 +77,15 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalOrderStateException("Cannot place order: Cart is not associated with a restaurant.");
         }
 
-        // 4. Create new Order entity
         Order newOrder = new Order();
         newOrder.setCustomerId(customer.getId());
         newOrder.setRestaurantId(cartResponse.getRestaurantId());
         newOrder.setTotalPrice(cartResponse.getCartTotalPrice() != null ? cartResponse.getCartTotalPrice() : BigDecimal.ZERO);
-        newOrder.setStatus(OrderStatus.PLACED);
-        // newOrder.setPlacedAt(LocalDateTime.now()); // This is handled by setStatus
-        // Delivery details can be set here if provided, or updated later. For now, they remain null.
-        // newOrder.setDeliveryAddressLine1(...);
 
-        // 5. Create OrderItem entities from cart items
+        // **Set initial status to PENDING_PAYMENT**
+        newOrder.setStatus(OrderStatus.PENDING_PAYMENT);
+        // Delivery details might be set here or when payment is confirmed
+
         List<OrderItem> orderItems = new ArrayList<>();
         for (CartItemResponse cartItemDto : cartResponse.getItems()) {
             OrderItem orderItem = new OrderItem();
@@ -105,38 +94,93 @@ public class OrderServiceImpl implements OrderService {
             orderItem.setQuantity(cartItemDto.getQuantity());
             orderItem.setUnitPrice(cartItemDto.getUnitPrice());
             orderItem.setItemTotalPrice(cartItemDto.getTotalPrice());
-            // orderItem.setSelectedOptions(...); // If you have options
-            newOrder.addOrderItem(orderItem); // This also sets orderItem.setOrder(newOrder)
+            newOrder.addOrderItem(orderItem);
         }
-        // newOrder.setOrderItems(orderItems); // addOrderItem handles this
 
-        // 6. Save the order (OrderItems will be cascaded)
         Order savedOrder = orderRepository.save(newOrder);
-        LOGGER.info("Order ID: {} placed successfully for user: {} by principal: {}", savedOrder.getId(), customer.getUsername(), principal.getUsername());
+        LOGGER.info("Order ID: {} created with status PENDING_PAYMENT for user: {} by principal: {}", savedOrder.getId(), customer.getUsername(), principal.getUsername());
 
-        // 7. Clear the cart
+        // Consider moving cart clearing to after successful payment processing via webhook
         try {
             cartService.clearCart(customer.getUsername());
-            LOGGER.info("Cart cleared for user: {} after order placement.", customer.getUsername());
+            LOGGER.info("Cart cleared for user: {} after order creation (status PENDING_PAYMENT).", customer.getUsername());
         } catch (Exception e) {
-            // Log the error but don't let it fail the order placement transaction.
-            // Cart clearing is a secondary concern here.
-            LOGGER.error("Failed to clear cart for user {} after order placement. Order ID: {}. Error: {}",
+            LOGGER.error("Failed to clear cart for user {} after order creation. Order ID: {}. Error: {}",
                     customer.getUsername(), savedOrder.getId(), e.getMessage());
         }
 
         return savedOrder;
     }
 
+    @Override
+    @Transactional
+    public Order processPaymentSuccess(Long orderId, String paymentIntentId) {
+        LOGGER.info("Processing payment success for order ID: {}, PaymentIntent ID: {}", orderId, paymentIntentId);
+        Order order = findOrderByIdOrThrow(orderId);
 
-    // ... other existing service methods (confirmOrder, markAsPreparing, etc.)
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            LOGGER.warn("Order ID: {} is not in PENDING_PAYMENT status. Current status: {}. PaymentIntent ID: {}",
+                    orderId, order.getStatus(), paymentIntentId);
+            // Idempotency check: if already processed for this payment intent
+            if (order.getStatus() == OrderStatus.PLACED && paymentIntentId.equals(order.getPaymentIntentId())) {
+                LOGGER.info("Order ID: {} already marked as PLACED for PaymentIntent ID: {}. Skipping update.", orderId, paymentIntentId);
+                return order;
+            }
+            // Optionally, throw an exception if it's an unexpected state transition
+            // throw new IllegalOrderStateException("Order " + orderId + " cannot process payment success, status is " + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.PLACED); // Transition to PLACED upon successful payment
+        order.setPaymentIntentId(paymentIntentId);
+        order.setPaymentStatusDetail("Payment successful.");
+        // The setStatus(OrderStatus.PLACED) call in Order.java should handle setting placedAt
+
+        Order updatedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} status updated to {} after successful payment. PaymentIntent ID: {}",
+                updatedOrder.getId(), updatedOrder.getStatus(), paymentIntentId);
+
+        // TODO: Trigger further actions like notifying the restaurant.
+
+        return updatedOrder;
+    }
+
+    @Override
+    @Transactional
+    public Order processPaymentFailure(Long orderId, String paymentIntentId, String failureReason) {
+        LOGGER.info("Processing payment failure for order ID: {}. PaymentIntent ID: {}, Reason: {}",
+                orderId, paymentIntentId, failureReason);
+        Order order = findOrderByIdOrThrow(orderId);
+
+        order.setStatus(OrderStatus.FAILED);
+        if (paymentIntentId != null) {
+            order.setPaymentIntentId(paymentIntentId);
+        }
+        order.setPaymentStatusDetail("Payment failed: " + (failureReason != null ? failureReason : "Unknown reason."));
+        // The setStatus(OrderStatus.FAILED) call in Order.java might handle specific timestamps if configured
+
+        Order updatedOrder = orderRepository.save(order);
+        LOGGER.info("Order ID: {} status updated to FAILED after payment failure. PaymentIntent ID: {}, Reason: {}",
+                updatedOrder.getId(), paymentIntentId, failureReason);
+
+        // TODO: Notify customer about payment failure.
+
+        return updatedOrder;
+    }
+
+
     @Override
     @Transactional
     public Order confirmOrder(Long orderId, UserDetails restaurantAdminPrincipal) {
         LOGGER.info("Attempting to confirm order with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
         Order order = findOrderByIdOrThrow(orderId);
         authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
-        validateOrderStatus(order, OrderStatus.PLACED, "confirm");
+
+        // **Order must be PLACED (i.e., payment successful) before it can be CONFIRMED by the restaurant**
+        if (order.getStatus() != OrderStatus.PLACED) {
+            throw new IllegalOrderStateException("Order " + orderId + " cannot be confirmed. Expected status PLACED (payment successful), but was " + order.getStatus() + ".");
+        }
+        // validateOrderStatus(order, OrderStatus.PLACED, "confirm"); // This helper can still be used if preferred
+
         order.setStatus(OrderStatus.CONFIRMED);
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} confirmed successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
@@ -149,12 +193,16 @@ public class OrderServiceImpl implements OrderService {
         LOGGER.info("Attempting to mark order as PREPARING with ID: {} by user: {}", orderId, restaurantAdminPrincipal.getUsername());
         Order order = findOrderByIdOrThrow(orderId);
         authorizeRestaurantAdminForOrder(order, restaurantAdminPrincipal);
+        // Order must be CONFIRMED before PREPARING
         validateOrderStatus(order, OrderStatus.CONFIRMED, "mark as preparing");
         order.setStatus(OrderStatus.PREPARING);
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order ID: {} marked as PREPARING successfully by user: {}", savedOrder.getId(), restaurantAdminPrincipal.getUsername());
         return savedOrder;
     }
+
+    // ... (markAsReadyForPickup, markAsPickedUp, markAsOutForDelivery, completeDelivery remain largely the same,
+    // but ensure their prerequisite statuses align with the new flow, e.g., PREPARING -> READY_FOR_PICKUP) ...
 
     @Override
     @Transactional
@@ -189,6 +237,8 @@ public class OrderServiceImpl implements OrderService {
         Order order = findOrderByIdOrThrow(orderId);
         authorizeRestaurantAdminForOrder(order, principal);
         if (order.getStatus() != OrderStatus.READY_FOR_PICKUP && order.getStatus() != OrderStatus.PREPARING) {
+            // If it can go from PREPARING directly to OUT_FOR_DELIVERY, this logic is fine.
+            // Otherwise, it must be READY_FOR_PICKUP.
             LOGGER.warn("Marking order as OUT_FOR_DELIVERY failed: Order ID {} is not in READY_FOR_PICKUP or PREPARING state. Current state: {}", orderId, order.getStatus());
             throw new IllegalOrderStateException(
                     "Order cannot be marked as out for delivery. Expected status READY_FOR_PICKUP or PREPARING, but was " + order.getStatus() + "."
@@ -240,17 +290,26 @@ public class OrderServiceImpl implements OrderService {
         LOGGER.info("Retrieving filtered orders for customer ID: {}, status: {}, startDate: {}, endDate: {}, page: {}, size: {}",
                 customerId, status, startDate, endDate, pageable.getPageNumber(), pageable.getPageSize());
 
-        // If no date filters provided, use min/max values
         LocalDateTime effectiveStartDate = startDate != null ? startDate : LocalDateTime.MIN;
+        // For endDate, if null, it usually means up to the current moment or unbounded.
+        // Using LocalDateTime.now() might prematurely filter out future-dated orders if that's ever a concept.
+        // For historical queries, LocalDateTime.MAX or a very far future date is safer if endDate is null.
+        // However, for this specific method, using LocalDateTime.now() is fine as it implies "up to now".
         LocalDateTime effectiveEndDate = endDate != null ? endDate : LocalDateTime.now();
 
-        // Choose appropriate repository method based on which filters are provided
-        if (status != null) {
+
+        if (status != null && startDate != null && endDate != null) {
             return orderRepository.findByCustomerIdAndStatusAndCreatedAtBetween(
                     customerId, status, effectiveStartDate, effectiveEndDate, pageable);
-        } else {
+        } else if (status != null) {
+            return orderRepository.findByCustomerIdAndStatus(
+                    customerId, status, pageable);
+        } else if (startDate != null && endDate != null) {
             return orderRepository.findByCustomerIdAndCreatedAtBetween(
                     customerId, effectiveStartDate, effectiveEndDate, pageable);
+        } else {
+            // Default to finding all orders for the customer if no specific filters are applied beyond customerId
+            return orderRepository.findByCustomerId(customerId, pageable);
         }
     }
 
@@ -258,14 +317,10 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public OrderStatisticsResponseDto getOrderStatisticsForCustomer(Long customerId) {
         LOGGER.info("Generating order statistics for customer ID: {}", customerId);
-
         OrderStatisticsResponseDto stats = new OrderStatisticsResponseDto();
-
-        // Get total order count
         Long totalOrders = orderRepository.countByCustomerId(customerId);
         stats.setTotalOrders(totalOrders);
 
-        // If no orders, return minimal statistics
         if (totalOrders == 0) {
             stats.setTotalSpent(BigDecimal.ZERO);
             stats.setOrdersByStatus(Map.of());
@@ -274,56 +329,41 @@ public class OrderServiceImpl implements OrderService {
             return stats;
         }
 
-        // Get total spent
         BigDecimal totalSpent = orderRepository.sumTotalPriceByCustomerId(customerId);
         stats.setTotalSpent(totalSpent != null ? totalSpent : BigDecimal.ZERO);
 
-        // Calculate average order amount
-        if (totalOrders > 0 && totalSpent != null) {
+        if (totalOrders > 0 && totalSpent != null && totalSpent.compareTo(BigDecimal.ZERO) != 0) {
             stats.setAverageOrderAmount(totalSpent.divide(new BigDecimal(totalOrders), 2, RoundingMode.HALF_UP));
         } else {
             stats.setAverageOrderAmount(BigDecimal.ZERO);
         }
 
-        // Get orders by status
         List<Object[]> statusCounts = orderRepository.countOrdersByStatusForCustomer(customerId);
         Map<String, Long> ordersByStatus = new HashMap<>();
         for (Object[] result : statusCounts) {
-            OrderStatus status = (OrderStatus) result[0];
+            OrderStatus currentStatus = (OrderStatus) result[0]; // Renamed to avoid conflict
             Long count = (Long) result[1];
-            ordersByStatus.put(status.name(), count);
+            ordersByStatus.put(currentStatus.name(), count);
         }
         stats.setOrdersByStatus(ordersByStatus);
 
-        // Get first and last order dates
         stats.setFirstOrderDate(orderRepository.findFirstOrderDateByCustomerId(customerId));
         stats.setLastOrderDate(orderRepository.findLastOrderDateByCustomerId(customerId));
-
-        // Get restaurant statistics
         stats.setRestaurantCount(orderRepository.countDistinctRestaurantsByCustomerId(customerId));
 
-        // Get most ordered restaurant
-        List<Object[]> mostOrderedRestaurant = orderRepository.findMostOrderedRestaurantByCustomerId(customerId);
-        if (!mostOrderedRestaurant.isEmpty()) {
-            Object[] result = mostOrderedRestaurant.get(0);
+        List<Object[]> mostOrderedRestaurantData = orderRepository.findMostOrderedRestaurantByCustomerId(customerId); // Renamed
+        if (!mostOrderedRestaurantData.isEmpty()) {
+            Object[] result = mostOrderedRestaurantData.get(0); // Use get(0) as it's ordered
             Long restaurantId = (Long) result[0];
-            Long orderCount = (Long) result[1];
+            Long orderCount = (Long) result[1]; // This is the count of orders for that restaurant
 
             stats.setMostOrderedRestaurantId(restaurantId);
-            stats.setMostOrderedRestaurantOrderCount(orderCount);
+            stats.setMostOrderedRestaurantOrderCount(orderCount); // This should be the order count from query
 
-            // Get restaurant name if available
-            try {
-                Restaurant restaurant = restaurantRepository.findById(restaurantId).orElse(null);
-                if (restaurant != null) {
-                    stats.setMostOrderedRestaurantName(restaurant.getName());
-                }
-            } catch (Exception e) {
-                LOGGER.warn("Could not retrieve restaurant name for ID {}: {}", restaurantId, e.getMessage());
-                stats.setMostOrderedRestaurantName("Unknown Restaurant");
-            }
+            restaurantRepository.findById(restaurantId).ifPresent(restaurant -> {
+                stats.setMostOrderedRestaurantName(restaurant.getName());
+            });
         }
-
         return stats;
     }
 
@@ -347,13 +387,17 @@ public class OrderServiceImpl implements OrderService {
                     LOGGER.warn("Authorization failed: User {} (from principal) not found in repository.", principalUsername);
                     return new UsernameNotFoundException("Authenticated user " + principalUsername + " not found in database.");
                 });
+
+        // Check if the user is a RESTAURANT_ADMIN for the order's restaurant
         Restaurant restaurant = restaurantRepository.findById(orderRestaurantId)
                 .orElseThrow(() -> {
                     LOGGER.warn("Restaurant ID {} (for order ID {}) not found during authorization.", orderRestaurantId, order.getId());
                     return new ResourceNotFoundException("Restaurant not found with ID: " + orderRestaurantId + " for order " + order.getId());
                 });
+
         boolean isAuthorized = restaurant.getRestaurantAdmins().stream()
                 .anyMatch(admin -> admin.getId().equals(adminUser.getId()));
+
         if (!isAuthorized) {
             LOGGER.warn("Authorization failed: User {} (ID: {}) is not an admin for restaurant ID {} (Order ID: {})",
                     principalUsername, adminUser.getId(), orderRestaurantId, order.getId());
