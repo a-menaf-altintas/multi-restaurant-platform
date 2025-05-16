@@ -2,17 +2,19 @@ package com.multirestaurantplatform.payment.service.impl;
 
 import com.multirestaurantplatform.payment.service.StripeService;
 import com.stripe.Stripe;
+import com.stripe.exception.SignatureVerificationException; // Stripe's exception
 import com.stripe.exception.StripeException;
+import com.stripe.model.Event;
+import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.StripeObject; // For deserialized object
+import com.stripe.net.Webhook; // For signature verification
 import com.stripe.param.PaymentIntentCreateParams;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class StripeServiceImpl implements StripeService {
@@ -22,17 +24,15 @@ public class StripeServiceImpl implements StripeService {
     @Value("${stripe.secret.key}")
     private String secretKey;
 
+    @Value("${stripe.webhook.secret}") // Inject the webhook secret
+    private String webhookSecret;
+
     @PostConstruct
     public void init() {
         Stripe.apiKey = secretKey;
-        logger.info("StripeService initialized with API key.");
+        logger.info("StripeService initialized with API key. Webhook secret loaded: {}", webhookSecret != null && !webhookSecret.startsWith("whsec_YOUR_FALLBACK") ? "[PRESENT]" : "[MISSING or FALLBACK]");
     }
 
-    /**
-     * Custom exception for payment processing errors.
-     * Defined as an inner class to minimize new files for now.
-     * Can be refactored into its own file in backend/payment/src/main/java/com/multirestaurantplatform/payment/exception/ later.
-     */
     public static class PaymentProcessingException extends RuntimeException {
         public PaymentProcessingException(String message, Throwable cause) {
             super(message, cause);
@@ -45,32 +45,21 @@ public class StripeServiceImpl implements StripeService {
     @Override
     public String createPaymentIntent(long amount, String currency, String orderId, String customerEmail)
             throws PaymentProcessingException {
+        // ... (existing createPaymentIntent method from previous step - no changes here) ...
         try {
             logger.info("Attempting to create PaymentIntent for orderId: {}, amount: {}, currency: {}, customerEmail: {}",
                     orderId, amount, currency, customerEmail);
 
-            // Optional: Create or retrieve a Stripe Customer object
-            // This allows Stripe to link payments to a customer, send receipts, and save payment methods
-            // For simplicity, we are not creating a Stripe Customer here yet, but adding email to PaymentIntent
-            // com.stripe.model.Customer stripeCustomer = findOrCreateStripeCustomer(customerEmail, "Customer for order " + orderId);
-
             PaymentIntentCreateParams.Builder paramsBuilder = PaymentIntentCreateParams.builder()
-                .setAmount(amount)
-                .setCurrency(currency.toLowerCase())
-                .setAutomaticPaymentMethods(
-                    PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
-                        .setEnabled(true)
-                        .build())
-                .putMetadata("order_id", orderId)
-                .putMetadata("customer_email_for_order", customerEmail); // Storing email in metadata for reference
-
-            // If you want Stripe to handle sending email receipts, you can set the 'receipt_email' parameter
-            // Note: This is generally done if you have a Stripe Customer object associated, or directly on PI.
-             paramsBuilder.setReceiptEmail(customerEmail);
-            // if (stripeCustomer != null) {
-            //     paramsBuilder.setCustomer(stripeCustomer.getId());
-            // }
-
+                    .setAmount(amount)
+                    .setCurrency(currency.toLowerCase())
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                    .setEnabled(true)
+                                    .build())
+                    .putMetadata("order_id", orderId)
+                    .putMetadata("customer_email_for_order", customerEmail)
+                    .setReceiptEmail(customerEmail);
 
             PaymentIntent paymentIntent = PaymentIntent.create(paramsBuilder.build());
 
@@ -92,21 +81,71 @@ public class StripeServiceImpl implements StripeService {
         }
     }
 
-    // Example stub for finding/creating a Stripe customer - can be implemented later
-    // private com.stripe.model.Customer findOrCreateStripeCustomer(String email, String name) throws StripeException {
-    //     // Logic to search for customer by email, if not found, create new.
-    //     // This is a simplified stub.
-    //     com.stripe.param.CustomerListParams listParams = com.stripe.param.CustomerListParams.builder().setEmail(email).setLimit(1L).build();
-    //     var customers = com.stripe.model.Customer.list(listParams);
-    //     if (!customers.getData().isEmpty()) {
-    //         return customers.getData().get(0);
-    //     } else {
-    //         com.stripe.param.CustomerCreateParams customerParams = com.stripe.param.CustomerCreateParams.builder()
-    //             .setEmail(email)
-    //             .setName(name)
-    //             .putMetadata("app_order_id", "Initial Order Link") // Example metadata
-    //             .build();
-    //         return com.stripe.model.Customer.create(customerParams);
-    //     }
-    // }
+    @Override
+    public void handleWebhookEvent(String payload, String sigHeader)
+            throws SignatureVerificationException, PaymentProcessingException {
+        Event event;
+        try {
+            // Verify the signature and construct the event object
+            // This will throw SignatureVerificationException if verification fails
+            event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+        } catch (SignatureVerificationException e) {
+            logger.error("Webhook error: Invalid Stripe signature. Message: {}", e.getMessage());
+            throw e; // Re-throw for the controller to handle as a specific error (e.g., HTTP 400)
+        } catch (Exception e) { // Catches JsonSyntaxException etc.
+            logger.error("Webhook error: Could not parse payload or other construction error. Message: {}", e.getMessage());
+            throw new PaymentProcessingException("Error constructing webhook event: " + e.getMessage(), e);
+        }
+
+        EventDataObjectDeserializer dataObjectDeserializer = event.getDataObjectDeserializer();
+        StripeObject stripeObject = null;
+        if (dataObjectDeserializer.getObject().isPresent()) {
+            stripeObject = dataObjectDeserializer.getObject().get();
+        } else {
+            // Deserialization failed, probably due to API version mismatch or an issue with the data
+            logger.warn("Webhook warning: Deserialization of event data object failed for event ID: {} Type: {}", event.getId(), event.getType());
+            // Depending on the event type, you might still be able to proceed or might need to log and ignore
+        }
+
+        logger.info("Received Stripe Event: Id='{}', Type='{}', Livemode='{}'", event.getId(), event.getType(), event.getLivemode());
+
+        // Handle the event
+        switch (event.getType()) {
+            case "payment_intent.succeeded":
+                PaymentIntent paymentIntentSucceeded = (PaymentIntent) stripeObject;
+                if (paymentIntentSucceeded != null) {
+                    logger.info("PaymentIntent Succeeded: ID={}, Amount={}, OrderID (from metadata)={}",
+                            paymentIntentSucceeded.getId(),
+                            paymentIntentSucceeded.getAmount(),
+                            paymentIntentSucceeded.getMetadata().get("order_id"));
+                    // TODO:
+                    // 1. Retrieve your internal order using paymentIntentSucceeded.getMetadata().get("order_id")
+                    // 2. Mark the order as paid/processing.
+                    // 3. Fulfill the order (e.g., notify restaurant, etc.).
+                    // 4. Ensure this is idempotent (e.g., check if order already marked as paid).
+                } else {
+                    logger.warn("payment_intent.succeeded event for event ID: {} but StripeObject was null after deserialization.", event.getId());
+                }
+                break;
+            case "payment_intent.payment_failed":
+                PaymentIntent paymentIntentFailed = (PaymentIntent) stripeObject;
+                if (paymentIntentFailed != null) {
+                    logger.info("PaymentIntent Failed: ID={}, OrderID (from metadata)={}, FailureReason={}",
+                            paymentIntentFailed.getId(),
+                            paymentIntentFailed.getMetadata().get("order_id"),
+                            paymentIntentFailed.getLastPaymentError() != null ? paymentIntentFailed.getLastPaymentError().getMessage() : "N/A");
+                    // TODO:
+                    // 1. Retrieve your internal order.
+                    // 2. Mark the order as payment failed.
+                    // 3. Notify the customer.
+                } else {
+                    logger.warn("payment_intent.payment_failed event for event ID: {} but StripeObject was null after deserialization.", event.getId());
+                }
+                break;
+            // ... handle other event types as needed ...
+            // e.g., charge.succeeded, checkout.session.completed (if using Stripe Checkout)
+            default:
+                logger.warn("Unhandled Stripe event type: {}", event.getType());
+        }
+    }
 }
