@@ -1,3 +1,4 @@
+// File: backend/security/src/main/java/com/multirestaurantplatform/security/config/SecurityConfig.java
 package com.multirestaurantplatform.security.config;
 
 import com.multirestaurantplatform.security.filter.JwtAuthenticationFilter;
@@ -10,13 +11,12 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer; // Import for frameOptions
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-// import org.springframework.boot.autoconfigure.security.servlet.PathRequest; // Not strictly needed if using specific path matchers
 
 @Configuration
 @EnableWebSecurity
@@ -49,26 +49,21 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/v1/auth/**",         // Login, Register
-                                "/api/v1/test/health",     // Health check path
+                                "/api/v1/auth/**",
+                                "/api/v1/test/health",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/webjars/**",
-                                "/h2-console/**"          // Permit H2 console access
+                                "/h2-console/**",
+                                "/api/v1/stripe-webhooks/events", // Existing public webhook
+                                "/api/v1/payments/stripe-publishable-key" // *** ADD THIS NEW PUBLIC ENDPOINT ***
                         ).permitAll()
-                        .anyRequest().authenticated() // All other requests need authentication
+                        .anyRequest().authenticated()
                 )
-                // Configure headers, specifically for X-Frame-Options to allow H2 console
-                // This is a common way to allow H2 console frames.
-                // Spring Security 6.x new way to configure headers.
                 .headers(headers ->
-                        headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin // Allow framing from same origin for H2 console
-                                // Or, if sameOrigin doesn't work for some reason with H2 console's specific setup:
-                                // headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable) // Less secure, but might be needed for H2 console
-                        )
+                        headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                 );
-
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
