@@ -14,14 +14,16 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "com.multirestaurantplatform.security.repository",
         "com.multirestaurantplatform.restaurant.repository",
         "com.multirestaurantplatform.menu.repository",
-        "com.multirestaurantplatform.order.repository" // Added OrderRepository package
+        "com.multirestaurantplatform.order.repository", // Existing
+        "com.multirestaurantplatform.payment.repository" // Added for payment module (good for future use)
 })
 @EntityScan(basePackages = {
         "com.multirestaurantplatform.security.model",
         "com.multirestaurantplatform.common.model",    // BaseEntity is here
         "com.multirestaurantplatform.restaurant.model",
         "com.multirestaurantplatform.menu.model",
-        "com.multirestaurantplatform.order.model"      // Added Order and OrderItem entity package
+        "com.multirestaurantplatform.order.model",      // Existing
+        "com.multirestaurantplatform.payment.model" // Added for payment module (good for future use)
 })
 public class ApiApplication {
 
@@ -34,19 +36,34 @@ public class ApiApplication {
                 .ignoreIfMalformed() // Don't throw an error if .env is malformed
                 .load();
 
-        // Example: Set JWT_SECRET_KEY as a system property if found in .env
-        // This allows @Value("${JWT_SECRET_KEY}") to pick it up.
-        String loadedSecret = dotenv.get("JWT_SECRET_KEY");
-        if (loadedSecret != null && !loadedSecret.trim().isEmpty()) {
-            System.setProperty("JWT_SECRET_KEY", loadedSecret);
-            // For debugging: System.out.println("Loaded JWT_SECRET_KEY from .env and set as system property.");
-        } else {
-            // For debugging: System.out.println("JWT_SECRET_KEY not found in .env or is empty.");
-        }
+        // Load JWT_SECRET_KEY and set as system property
+        setSystemPropertyFromDotenv(dotenv, "JWT_SECRET_KEY");
+
+        // Load Stripe keys and set as system properties
+        setSystemPropertyFromDotenv(dotenv, "STRIPE_SECRET_KEY");
+        setSystemPropertyFromDotenv(dotenv, "STRIPE_PUBLISHABLE_KEY");
+        setSystemPropertyFromDotenv(dotenv, "STRIPE_WEBHOOK_SECRET");
 
         // Ensure other .env variables are similarly propagated if needed as system properties
         // or accessed directly via dotenv instance in specific configurations.
 
         SpringApplication.run(ApiApplication.class, args);
+    }
+
+    /**
+     * Helper method to load a variable from Dotenv and set it as a system property.
+     * @param dotenv The Dotenv instance
+     * @param variableName The name of the environment variable to load
+     */
+    private static void setSystemPropertyFromDotenv(Dotenv dotenv, String variableName) {
+        String value = dotenv.get(variableName);
+        if (value != null && !value.trim().isEmpty()) {
+            System.setProperty(variableName, value);
+            // For debugging:
+            // System.out.println("Loaded " + variableName + " from .env and set as system property.");
+        } else {
+            // For debugging:
+            // System.out.println(variableName + " not found in .env or is empty. It might be set directly in the OS environment.");
+        }
     }
 }

@@ -8,7 +8,7 @@
     "include_only_module": null,
     "include_only_file_names_in_path": true,
     "scan_area": "backend",
-    "include_tests": true
+    "include_tests": false
   },
   "directories": [
     ".",
@@ -90,6 +90,14 @@
     "backend/payment/src/main",
     "backend/payment/src/main/resources",
     "backend/payment/src/main/java",
+    "backend/payment/src/main/java/com",
+    "backend/payment/src/main/java/com/multirestaurantplatform",
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment",
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/dto",
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/config",
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/service",
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/service/impl",
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/exception",
     "backend/admin",
     "backend/admin/src",
     "backend/admin/src/test",
@@ -146,6 +154,7 @@
     "backend/api/src/test/java/com",
     "backend/api/src/test/java/com/multirestaurantplatform",
     "backend/api/src/test/java/com/multirestaurantplatform/api",
+    "backend/api/src/test/java/com/multirestaurantplatform/api/config",
     "backend/api/src/test/java/com/multirestaurantplatform/api/controller",
     "backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth",
     "backend/api/src/test/java/com/multirestaurantplatform/api/e2e",
@@ -173,34 +182,6 @@
     {
       "path": "backend/order/build.gradle",
       "type": "gradle"
-    },
-    {
-      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/OrderModuleTestApplication.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/config/TestConfig.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/controller/CartControllerTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/controller/OrderControllerTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/service/InMemoryCartServiceImplTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/service/impl/OrderServiceImplTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/order/src/test/java/com/multirestaurantplatform/order/service/impl/PersistentCartServiceImplTest.java",
-      "type": "java"
     },
     {
       "path": "backend/order/src/main/java/com/multirestaurantplatform/order/dto/AddItemToCartRequest.java",
@@ -335,14 +316,6 @@
       "type": "gradle"
     },
     {
-      "path": "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service/RestaurantSecurityServiceImplTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service/RestaurantServiceImplTest.java",
-      "type": "java"
-    },
-    {
       "path": "backend/restaurant/src/main/java/com/multirestaurantplatform/restaurant/dto/CreateRestaurantRequestDto.java",
       "type": "java"
     },
@@ -381,14 +354,6 @@
     {
       "path": "backend/security/build.gradle",
       "type": "gradle"
-    },
-    {
-      "path": "backend/security/src/test/java/com/multirestaurantplatform/security/service/JwtServiceTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/security/src/test/java/com/multirestaurantplatform/security/service/UserServiceImplTest.java",
-      "type": "java"
     },
     {
       "path": "backend/security/src/main/java/com/multirestaurantplatform/security/dto/JwtAuthenticationResponse.java",
@@ -487,14 +452,6 @@
       "type": "gradle"
     },
     {
-      "path": "backend/menu/src/test/java/com/multirestaurantplatform/menu/service/MenuSecurityServiceImplTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/menu/src/test/java/com/multirestaurantplatform/menu/service/MenuServiceImplTest.java",
-      "type": "java"
-    },
-    {
       "path": "backend/menu/src/main/java/com/multirestaurantplatform/menu/dto/CreateMenuRequestDto.java",
       "type": "java"
     },
@@ -533,30 +490,6 @@
     {
       "path": "backend/api/build.gradle",
       "type": "gradle"
-    },
-    {
-      "path": "backend/api/src/test/resources/application.properties",
-      "type": "properties"
-    },
-    {
-      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/MenuControllerIntegrationTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/OrderHistoryIntegrationTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/RestaurantControllerIntegrationTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth/AuthControllerIntegrationTest.java",
-      "type": "java"
-    },
-    {
-      "path": "backend/api/src/test/java/com/multirestaurantplatform/api/e2e/OrderFlowEndToEndTest.java",
-      "type": "java"
     },
     {
       "path": "backend/api/src/main/resources/application.properties",
@@ -629,24 +562,22 @@
       "nofileexist"
     ],
     "backend/order/src/test/java/com/multirestaurantplatform/order": [
-      "OrderModuleTestApplication.java"
+      "nofileexist"
     ],
     "backend/order/src/test/java/com/multirestaurantplatform/order/repository": [
       "nofileexist"
     ],
     "backend/order/src/test/java/com/multirestaurantplatform/order/config": [
-      "TestConfig.java"
+      "nofileexist"
     ],
     "backend/order/src/test/java/com/multirestaurantplatform/order/controller": [
-      "CartControllerTest.java",
-      "OrderControllerTest.java"
+      "nofileexist"
     ],
     "backend/order/src/test/java/com/multirestaurantplatform/order/service": [
-      "InMemoryCartServiceImplTest.java"
+      "nofileexist"
     ],
     "backend/order/src/test/java/com/multirestaurantplatform/order/service/impl": [
-      "OrderServiceImplTest.java",
-      "PersistentCartServiceImplTest.java"
+      "nofileexist"
     ],
     "backend/order/src/main": [
       "nofileexist"
@@ -743,8 +674,7 @@
       "nofileexist"
     ],
     "backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service": [
-      "RestaurantSecurityServiceImplTest.java",
-      "RestaurantServiceImplTest.java"
+      "nofileexist"
     ],
     "backend/restaurant/src/main": [
       "nofileexist"
@@ -806,8 +736,7 @@
       "nofileexist"
     ],
     "backend/security/src/test/java/com/multirestaurantplatform/security/service": [
-      "JwtServiceTest.java",
-      "UserServiceImplTest.java"
+      "nofileexist"
     ],
     "backend/security/src/main": [
       "nofileexist"
@@ -875,6 +804,30 @@
       "nofileexist"
     ],
     "backend/payment/src/main/java": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com/multirestaurantplatform": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/dto": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/config": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/service": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/service/impl": [
+      "nofileexist"
+    ],
+    "backend/payment/src/main/java/com/multirestaurantplatform/payment/exception": [
       "nofileexist"
     ],
     "backend/admin": [
@@ -992,8 +945,7 @@
       "nofileexist"
     ],
     "backend/menu/src/test/java/com/multirestaurantplatform/menu/service": [
-      "MenuSecurityServiceImplTest.java",
-      "MenuServiceImplTest.java"
+      "nofileexist"
     ],
     "backend/menu/src/main": [
       "nofileexist"
@@ -1040,7 +992,7 @@
       "nofileexist"
     ],
     "backend/api/src/test/resources": [
-      "application.properties"
+      "nofileexist"
     ],
     "backend/api/src/test/java": [
       "nofileexist"
@@ -1054,16 +1006,17 @@
     "backend/api/src/test/java/com/multirestaurantplatform/api": [
       "nofileexist"
     ],
+    "backend/api/src/test/java/com/multirestaurantplatform/api/config": [
+      "nofileexist"
+    ],
     "backend/api/src/test/java/com/multirestaurantplatform/api/controller": [
-      "MenuControllerIntegrationTest.java",
-      "OrderHistoryIntegrationTest.java",
-      "RestaurantControllerIntegrationTest.java"
+      "nofileexist"
     ],
     "backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth": [
-      "AuthControllerIntegrationTest.java"
+      "nofileexist"
     ],
     "backend/api/src/test/java/com/multirestaurantplatform/api/e2e": [
-      "OrderFlowEndToEndTest.java"
+      "nofileexist"
     ],
     "backend/api/src/main": [
       "nofileexist"

@@ -34,7 +34,6 @@ Scan Configuration:
 - Include extensions: .java
 - Including only file names in path
 - Scan area: backend
-- Including test files
 [DIR] .
 Files: /nofileexist
 [DIR] backend
@@ -54,17 +53,17 @@ Files: /nofileexist
 [DIR] backend/order/src/test/java/com/multirestaurantplatform
 Files: /nofileexist
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order
-Files: /OrderModuleTestApplication.java
+Files: /nofileexist
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/repository
 Files: /nofileexist
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/config
-Files: /TestConfig.java
+Files: /nofileexist
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/controller
-Files: /CartControllerTest.java /OrderControllerTest.java
+Files: /nofileexist
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/service
-Files: /InMemoryCartServiceImplTest.java
+Files: /nofileexist
 [DIR] backend/order/src/test/java/com/multirestaurantplatform/order/service/impl
-Files: /OrderServiceImplTest.java /PersistentCartServiceImplTest.java
+Files: /nofileexist
 [DIR] backend/order/src/main
 Files: /nofileexist
 [DIR] backend/order/src/main/resources
@@ -114,7 +113,7 @@ Files: /nofileexist
 [DIR] backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant
 Files: /nofileexist
 [DIR] backend/restaurant/src/test/java/com/multirestaurantplatform/restaurant/service
-Files: /RestaurantSecurityServiceImplTest.java /RestaurantServiceImplTest.java
+Files: /nofileexist
 [DIR] backend/restaurant/src/main
 Files: /nofileexist
 [DIR] backend/restaurant/src/main/resources
@@ -152,7 +151,7 @@ Files: /nofileexist
 [DIR] backend/security/src/test/java/com/multirestaurantplatform/security
 Files: /nofileexist
 [DIR] backend/security/src/test/java/com/multirestaurantplatform/security/service
-Files: /JwtServiceTest.java /UserServiceImplTest.java
+Files: /nofileexist
 [DIR] backend/security/src/main
 Files: /nofileexist
 [DIR] backend/security/src/main/resources
@@ -192,6 +191,22 @@ Files: /nofileexist
 [DIR] backend/payment/src/main/resources
 Files: /nofileexist
 [DIR] backend/payment/src/main/java
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com/multirestaurantplatform
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com/multirestaurantplatform/payment
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com/multirestaurantplatform/payment/dto
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com/multirestaurantplatform/payment/config
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com/multirestaurantplatform/payment/service
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com/multirestaurantplatform/payment/service/impl
+Files: /nofileexist
+[DIR] backend/payment/src/main/java/com/multirestaurantplatform/payment/exception
 Files: /nofileexist
 [DIR] backend/admin
 Files: /build.gradle
@@ -268,7 +283,7 @@ Files: /nofileexist
 [DIR] backend/menu/src/test/java/com/multirestaurantplatform/menu
 Files: /nofileexist
 [DIR] backend/menu/src/test/java/com/multirestaurantplatform/menu/service
-Files: /MenuSecurityServiceImplTest.java /MenuServiceImplTest.java
+Files: /nofileexist
 [DIR] backend/menu/src/main
 Files: /nofileexist
 [DIR] backend/menu/src/main/resources
@@ -296,7 +311,7 @@ Files: /nofileexist
 [DIR] backend/api/src/test
 Files: /nofileexist
 [DIR] backend/api/src/test/resources
-Files: /application.properties
+Files: /nofileexist
 [DIR] backend/api/src/test/java
 Files: /nofileexist
 [DIR] backend/api/src/test/java/com
@@ -305,12 +320,14 @@ Files: /nofileexist
 Files: /nofileexist
 [DIR] backend/api/src/test/java/com/multirestaurantplatform/api
 Files: /nofileexist
+[DIR] backend/api/src/test/java/com/multirestaurantplatform/api/config
+Files: /nofileexist
 [DIR] backend/api/src/test/java/com/multirestaurantplatform/api/controller
-Files: /MenuControllerIntegrationTest.java /OrderHistoryIntegrationTest.java /RestaurantControllerIntegrationTest.java
+Files: /nofileexist
 [DIR] backend/api/src/test/java/com/multirestaurantplatform/api/controller/auth
-Files: /AuthControllerIntegrationTest.java
+Files: /nofileexist
 [DIR] backend/api/src/test/java/com/multirestaurantplatform/api/e2e
-Files: /OrderFlowEndToEndTest.java
+Files: /nofileexist
 [DIR] backend/api/src/main
 Files: /nofileexist
 [DIR] backend/api/src/main/resources
