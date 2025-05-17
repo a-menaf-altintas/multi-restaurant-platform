@@ -55,6 +55,9 @@ Thumbs.db
 *.war
 *.ear
 
+# output files
+multi-restaurant-platform_scan*
+
 # Package Files #
 # --------------- #
 # *.jar
