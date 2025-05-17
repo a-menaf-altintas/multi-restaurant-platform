@@ -1,3 +1,4 @@
+// File: backend/notification/build.gradle
 import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
 // File: backend/notification/build.gradle
@@ -19,10 +20,23 @@ dependencies {
     // Spring Boot Core
     implementation 'org.springframework.boot:spring-boot-starter'
 
+    // Optional: Spring Mail for email notifications - uncomment when implementing email notifications
+    // implementation 'org.springframework.boot:spring-boot-starter-mail'
+
     // Lombok for reducing boilerplate
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
     // Testing dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // For testing email notifications
+    testImplementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // For testing log capture
+    testImplementation 'ch.qos.logback:logback-classic'
+}
+
+test {
+    useJUnitPlatform()
 }

@@ -12,8 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.math.BigDecimal;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class LoggingNotificationServiceImplTest {
 
@@ -24,20 +23,24 @@ class LoggingNotificationServiceImplTest {
     @BeforeEach
     void setUp() {
         notificationService = new LoggingNotificationServiceImpl();
-        
-        // Get Logback Logger and attach a ListAppender to capture log messages
+
+        // Get the logger from the implementation class
         logger = (Logger) LoggerFactory.getLogger(LoggingNotificationServiceImpl.class);
+
+        // Create and start a ListAppender to capture log messages
         listAppender = new ListAppender<>();
         listAppender.start();
+
+        // Add the appender to the logger
         logger.addAppender(listAppender);
     }
 
     @Test
-    void sendPaymentSuccessToCustomer_ShouldLogCorrectMessage() {
+    void sendPaymentSuccessToCustomer_shouldLogCorrectInfo() {
         // Arrange
-        Long orderId = 123L;
+        Long orderId = 12345L;
         String customerEmail = "test@example.com";
-        BigDecimal amount = new BigDecimal("25.99");
+        BigDecimal amount = new BigDecimal("99.99");
         String currency = "USD";
 
         // Act
@@ -46,23 +49,22 @@ class LoggingNotificationServiceImplTest {
         // Assert
         List<ILoggingEvent> logEvents = listAppender.list;
         assertEquals(1, logEvents.size());
-        
+
         ILoggingEvent logEvent = logEvents.get(0);
         assertEquals(Level.INFO, logEvent.getLevel());
         assertTrue(logEvent.getFormattedMessage().contains("NOTIFICATION TO CUSTOMER: Payment Success"));
-        assertTrue(logEvent.getFormattedMessage().contains(orderId.toString()));
-        assertTrue(logEvent.getFormattedMessage().contains(customerEmail));
-        assertTrue(logEvent.getFormattedMessage().contains(amount.toString()));
-        assertTrue(logEvent.getFormattedMessage().contains(currency));
+        assertTrue(logEvent.getFormattedMessage().contains("Order ID: " + orderId));
+        assertTrue(logEvent.getFormattedMessage().contains("Customer Email: " + customerEmail));
+        assertTrue(logEvent.getFormattedMessage().contains("Amount: " + amount + " " + currency));
     }
 
     @Test
-    void notifyRestaurantOfNewPaidOrder_ShouldLogCorrectMessage() {
+    void notifyRestaurantOfNewPaidOrder_shouldLogCorrectInfo() {
         // Arrange
-        Long orderId = 123L;
-        Long restaurantId = 456L;
+        Long orderId = 12345L;
+        Long restaurantId = 789L;
         String customerEmail = "test@example.com";
-        BigDecimal totalAmount = new BigDecimal("75.50");
+        BigDecimal totalAmount = new BigDecimal("149.99");
 
         // Act
         notificationService.notifyRestaurantOfNewPaidOrder(orderId, restaurantId, customerEmail, totalAmount);
@@ -70,20 +72,20 @@ class LoggingNotificationServiceImplTest {
         // Assert
         List<ILoggingEvent> logEvents = listAppender.list;
         assertEquals(1, logEvents.size());
-        
+
         ILoggingEvent logEvent = logEvents.get(0);
         assertEquals(Level.INFO, logEvent.getLevel());
         assertTrue(logEvent.getFormattedMessage().contains("NOTIFICATION TO RESTAURANT: New Paid Order"));
-        assertTrue(logEvent.getFormattedMessage().contains(orderId.toString()));
-        assertTrue(logEvent.getFormattedMessage().contains(restaurantId.toString()));
-        assertTrue(logEvent.getFormattedMessage().contains(customerEmail));
-        assertTrue(logEvent.getFormattedMessage().contains(totalAmount.toString()));
+        assertTrue(logEvent.getFormattedMessage().contains("Order ID: " + orderId));
+        assertTrue(logEvent.getFormattedMessage().contains("Restaurant ID: " + restaurantId));
+        assertTrue(logEvent.getFormattedMessage().contains("Customer Email: " + customerEmail));
+        assertTrue(logEvent.getFormattedMessage().contains("Total Amount: " + totalAmount));
     }
 
     @Test
-    void sendPaymentFailureToCustomer_ShouldLogCorrectMessage() {
+    void sendPaymentFailureToCustomer_shouldLogCorrectInfo() {
         // Arrange
-        Long orderId = 123L;
+        Long orderId = 12345L;
         String customerEmail = "test@example.com";
         String failureReason = "Insufficient funds";
 
@@ -93,12 +95,12 @@ class LoggingNotificationServiceImplTest {
         // Assert
         List<ILoggingEvent> logEvents = listAppender.list;
         assertEquals(1, logEvents.size());
-        
+
         ILoggingEvent logEvent = logEvents.get(0);
         assertEquals(Level.INFO, logEvent.getLevel());
         assertTrue(logEvent.getFormattedMessage().contains("NOTIFICATION TO CUSTOMER: Payment Failure"));
-        assertTrue(logEvent.getFormattedMessage().contains(orderId.toString()));
-        assertTrue(logEvent.getFormattedMessage().contains(customerEmail));
-        assertTrue(logEvent.getFormattedMessage().contains(failureReason));
+        assertTrue(logEvent.getFormattedMessage().contains("Order ID: " + orderId));
+        assertTrue(logEvent.getFormattedMessage().contains("Customer Email: " + customerEmail));
+        assertTrue(logEvent.getFormattedMessage().contains("Reason: " + failureReason));
     }
 }
