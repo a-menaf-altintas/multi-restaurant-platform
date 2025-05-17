@@ -1,5 +1,5 @@
 // File: backend/menu/src/test/java/com/multirestaurantplatform/menu/service/MenuServiceImplTest.java
-package com.multirestaurantplatform.menu.service; // Assuming this is correct based on your previous file
+package com.multirestaurantplatform.menu.service;
 
 import com.multirestaurantplatform.common.exception.ConflictException;
 import com.multirestaurantplatform.common.exception.ResourceNotFoundException;
@@ -7,6 +7,8 @@ import com.multirestaurantplatform.menu.dto.CreateMenuRequestDto;
 import com.multirestaurantplatform.menu.dto.MenuResponseDto;
 import com.multirestaurantplatform.menu.dto.UpdateMenuRequestDto;
 import com.multirestaurantplatform.menu.model.Menu;
+import com.multirestaurantplatform.menu.model.MenuItem; // Import MenuItem
+import com.multirestaurantplatform.menu.repository.MenuItemRepository; // Import MenuItemRepository
 import com.multirestaurantplatform.menu.repository.MenuRepository;
 import com.multirestaurantplatform.restaurant.model.Restaurant;
 import com.multirestaurantplatform.restaurant.repository.RestaurantRepository;
@@ -38,8 +40,11 @@ class MenuServiceImplTest {
     @Mock
     private RestaurantRepository restaurantRepository;
 
+    @Mock // Added mock for MenuItemRepository
+    private MenuItemRepository menuItemRepository;
+
     @InjectMocks
-    private MenuServiceImpl menuService; // Corrected to MenuServiceImpl from your service file
+    private MenuServiceImpl menuService;
 
     private Restaurant testRestaurant;
     private Menu testMenu;
@@ -51,7 +56,6 @@ class MenuServiceImplTest {
         testRestaurant = new Restaurant();
         testRestaurant.setId(1L);
         testRestaurant.setName("Test Restaurant");
-        // ... other restaurant properties
 
         testMenu = new Menu();
         testMenu.setId(10L);
@@ -80,10 +84,9 @@ class MenuServiceImplTest {
         when(menuRepository.findByRestaurantIdAndNameIgnoreCase(anyLong(), anyString())).thenReturn(Optional.empty());
         when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> {
             Menu savedMenu = invocation.getArgument(0);
-            savedMenu.setId(11L); // Simulate ID generation
+            savedMenu.setId(11L);
             savedMenu.setCreatedAt(Instant.now());
             savedMenu.setUpdatedAt(Instant.now());
-            // Ensure the restaurant object is correctly associated in the entity being saved
             savedMenu.setRestaurant(testRestaurant);
             return savedMenu;
         });
@@ -97,7 +100,7 @@ class MenuServiceImplTest {
         assertEquals(createMenuRequestDto.getDescription(), result.getDescription());
         assertEquals(createMenuRequestDto.getRestaurantId(), result.getRestaurantId());
         assertTrue(result.isActive());
-        assertEquals(11L, result.getId()); // Check the specific ID
+        assertEquals(11L, result.getId());
         verify(restaurantRepository).findById(createMenuRequestDto.getRestaurantId());
         verify(menuRepository).findByRestaurantIdAndNameIgnoreCase(createMenuRequestDto.getRestaurantId(), createMenuRequestDto.getName());
         verify(menuRepository).save(any(Menu.class));
@@ -123,9 +126,8 @@ class MenuServiceImplTest {
     void createMenu_whenMenuNameExistsForRestaurant_shouldThrowConflictException() {
         // Arrange
         when(restaurantRepository.findById(createMenuRequestDto.getRestaurantId())).thenReturn(Optional.of(testRestaurant));
-        // Use a new menu instance for the conflict to avoid modifying testMenu from setUp if it's used elsewhere
         Menu existingMenuWithSameName = new Menu();
-        existingMenuWithSameName.setId(12L); // Different ID
+        existingMenuWithSameName.setId(12L);
         existingMenuWithSameName.setName(createMenuRequestDto.getName());
         existingMenuWithSameName.setRestaurant(testRestaurant);
 
@@ -178,7 +180,7 @@ class MenuServiceImplTest {
     @DisplayName("findMenuById - Success with Null Restaurant in Menu (Mapper Test)")
     void findMenuById_whenMenuHasNullRestaurant_mapsRestaurantIdToNull() {
         // Arrange
-        testMenu.setRestaurant(null); // Key part for this test
+        testMenu.setRestaurant(null);
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
 
         // Act
@@ -187,7 +189,7 @@ class MenuServiceImplTest {
         // Assert
         assertNotNull(result);
         assertEquals(testMenu.getId(), result.getId());
-        assertNull(result.getRestaurantId()); // Verify mapper handled null restaurant
+        assertNull(result.getRestaurantId());
         verify(menuRepository).findById(testMenu.getId());
     }
 
@@ -264,16 +266,14 @@ class MenuServiceImplTest {
     @DisplayName("findActiveMenusByRestaurantId - Success with Mixed Active/Inactive Menus")
     void findActiveMenusByRestaurantId_whenRestaurantHasMixedMenus_shouldReturnOnlyActiveMenus() {
         // Arrange
-        Menu activeMenu1 = new Menu(); // Using a fresh instance for clarity
-        activeMenu1.setId(testMenu.getId()); // Can reuse ID if it helps, or new ID
+        Menu activeMenu1 = new Menu();
+        activeMenu1.setId(testMenu.getId());
         activeMenu1.setName(testMenu.getName());
         activeMenu1.setActive(true);
         activeMenu1.setRestaurant(testRestaurant);
         activeMenu1.setCreatedAt(Instant.now());
         activeMenu1.setUpdatedAt(Instant.now());
 
-        // The service method findByRestaurantIdAndIsActiveTrue should handle the filtering,
-        // so we just mock its result.
         when(menuRepository.findByRestaurantIdAndIsActiveTrue(testRestaurant.getId())).thenReturn(List.of(activeMenu1));
 
         // Act
@@ -297,19 +297,14 @@ class MenuServiceImplTest {
         updateMenuRequestDto.setName("Updated Lunch Menu");
         updateMenuRequestDto.setDescription("New delicious lunch options");
         updateMenuRequestDto.setIsActive(false);
-        String originalMenuName = testMenu.getName(); // Store before potential modification
 
-        // Ensure the menu being updated has a different name initially if testing name change logic thoroughly
         testMenu.setName("Original Name For Full Update Test");
 
-
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
-        // Mock no conflict for the new name
         when(menuRepository.findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), "Updated Lunch Menu"))
                 .thenReturn(Optional.empty());
         when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> {
             Menu savedMenu = invocation.getArgument(0);
-            // Simulate timestamp update by service/JPA
             savedMenu.setUpdatedAt(Instant.now().plusSeconds(1));
             return savedMenu;
         });
@@ -333,7 +328,7 @@ class MenuServiceImplTest {
         // Arrange
         updateMenuRequestDto.setName("Conflicting Menu Name");
         Menu conflictingMenu = new Menu();
-        conflictingMenu.setId(12L); // Different ID
+        conflictingMenu.setId(12L);
         conflictingMenu.setName("Conflicting Menu Name");
         conflictingMenu.setRestaurant(testRestaurant);
 
@@ -355,7 +350,6 @@ class MenuServiceImplTest {
     void updateMenu_whenOnlyDescriptionProvided_shouldUpdateOnlyDescription() {
         // Arrange
         updateMenuRequestDto.setDescription("Only description updated");
-        // Name and isActive remain null in DTO
 
         String originalName = testMenu.getName();
         boolean originalActiveStatus = testMenu.isActive();
@@ -368,11 +362,11 @@ class MenuServiceImplTest {
 
         // Assert
         assertNotNull(result);
-        assertEquals(originalName, result.getName()); // Name should not change
+        assertEquals(originalName, result.getName());
         assertEquals("Only description updated", result.getDescription());
-        assertEquals(originalActiveStatus, result.isActive()); // isActive should not change
+        assertEquals(originalActiveStatus, result.isActive());
         verify(menuRepository).findById(testMenu.getId());
-        verify(menuRepository, never()).findByRestaurantIdAndNameIgnoreCase(anyLong(), anyString()); // Name conflict check should not run
+        verify(menuRepository, never()).findByRestaurantIdAndNameIgnoreCase(anyLong(), anyString());
         verify(menuRepository).save(testMenu);
     }
 
@@ -397,7 +391,7 @@ class MenuServiceImplTest {
     @DisplayName("updateMenu - Update Only IsActive Status")
     void updateMenu_whenOnlyIsActiveProvided_shouldUpdateOnlyIsActive() {
         // Arrange
-        updateMenuRequestDto.setIsActive(false); // TestMenu is active (true) by default in setUp
+        updateMenuRequestDto.setIsActive(false);
 
         String originalName = testMenu.getName();
         String originalDescription = testMenu.getDescription();
@@ -412,7 +406,7 @@ class MenuServiceImplTest {
         assertNotNull(result);
         assertEquals(originalName, result.getName());
         assertEquals(originalDescription, result.getDescription());
-        assertFalse(result.isActive()); // IsActive should be updated
+        assertFalse(result.isActive());
         verify(menuRepository).findById(testMenu.getId());
         verify(menuRepository, never()).findByRestaurantIdAndNameIgnoreCase(anyLong(), anyString());
         verify(menuRepository).save(testMenu);
@@ -422,8 +416,8 @@ class MenuServiceImplTest {
     @DisplayName("updateMenu - Update Name to Same Name (Case Insensitive)")
     void updateMenu_whenNewNameIsSameAsOldNameIgnoreCase_shouldNotUpdateNameAndNotTriggerConflictCheck() {
         // Arrange
-        String originalName = testMenu.getName(); // e.g., "Lunch Menu"
-        updateMenuRequestDto.setName(originalName.toUpperCase()); // e.g., "LUNCH MENU"
+        String originalName = testMenu.getName();
+        updateMenuRequestDto.setName(originalName.toUpperCase());
 
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
         when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -433,15 +427,12 @@ class MenuServiceImplTest {
 
         // Assert
         assertNotNull(result);
-        // Name should remain unchanged because the service logic skips menu.setName() if
-        // newName.equalsIgnoreCase(menu.getName()) is true.
         assertEquals(originalName, result.getName());
-        // The conflict check should be skipped because of the same condition.
         verify(menuRepository, never()).findByRestaurantIdAndNameIgnoreCase(
                 eq(testRestaurant.getId()),
-                anyString() // Could be more specific with eq(updateMenuRequestDto.getName()) if needed
+                anyString()
         );
-        verify(menuRepository).save(testMenu); // Save is still called
+        verify(menuRepository).save(testMenu);
     }
 
     @Test
@@ -449,14 +440,12 @@ class MenuServiceImplTest {
     void updateMenu_whenNameConflictCheckFindsItself_shouldNotThrowConflictAndAllowUpdate() {
         // Arrange
         String newName = "Slightly New Name";
-        testMenu.setName("Original Name For This Test"); // Ensure current name is different for the test
+        testMenu.setName("Original Name For This Test");
         updateMenuRequestDto.setName(newName);
 
-
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
-        // Simulate findByRestaurantIdAndNameIgnoreCase returning the *same* menu being updated
         when(menuRepository.findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), newName))
-                .thenReturn(Optional.of(testMenu)); // It found itself
+                .thenReturn(Optional.of(testMenu));
         when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
@@ -464,12 +453,10 @@ class MenuServiceImplTest {
 
         // Assert
         assertNotNull(result);
-        assertEquals(newName, result.getName()); // Name should be updated
+        assertEquals(newName, result.getName());
         verify(menuRepository).findById(testMenu.getId());
-        // This IS called because newName is different from original name (ignoring case)
         verify(menuRepository).findByRestaurantIdAndNameIgnoreCase(testRestaurant.getId(), newName);
         verify(menuRepository).save(testMenu);
-        // No ConflictException should be thrown
     }
 
 
@@ -479,9 +466,11 @@ class MenuServiceImplTest {
     @DisplayName("deleteMenu - Success (Soft Delete)")
     void deleteMenu_whenMenuExistsAndIsActive_shouldSetInactiveAndSave() {
         // Arrange
-        assertTrue(testMenu.isActive()); // Pre-condition
+        assertTrue(testMenu.isActive());
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
         when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // Mock the menuItemRepository call to return an empty list, as we are not testing item deletion here
+        when(menuItemRepository.findByMenuId(testMenu.getId())).thenReturn(Collections.emptyList());
 
         // Act
         menuService.deleteMenu(testMenu.getId());
@@ -489,16 +478,21 @@ class MenuServiceImplTest {
         // Assert
         verify(menuRepository).findById(testMenu.getId());
         verify(menuRepository).save(testMenu);
-        assertFalse(testMenu.isActive()); // Check that the menu object itself was modified
+        verify(menuItemRepository).findByMenuId(testMenu.getId()); // Verify this interaction
+        // verify(menuItemRepository, never()).save(any(MenuItem.class)); // If no items, save on item repo not called
+        assertFalse(testMenu.isActive());
     }
 
     @Test
     @DisplayName("deleteMenu - Menu Already Inactive")
     void deleteMenu_whenMenuExistsAndIsAlreadyInactive_shouldStillSaveAndRemainInactive() {
         // Arrange
-        testMenu.setActive(false); // Pre-condition
+        testMenu.setActive(false);
         when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
         when(menuRepository.save(any(Menu.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // Mock the menuItemRepository call
+        when(menuItemRepository.findByMenuId(testMenu.getId())).thenReturn(Collections.emptyList());
+
 
         // Act
         menuService.deleteMenu(testMenu.getId());
@@ -506,7 +500,8 @@ class MenuServiceImplTest {
         // Assert
         verify(menuRepository).findById(testMenu.getId());
         verify(menuRepository).save(testMenu);
-        assertFalse(testMenu.isActive()); // Should remain inactive
+        verify(menuItemRepository).findByMenuId(testMenu.getId());
+        assertFalse(testMenu.isActive());
     }
 
     @Test
@@ -522,5 +517,35 @@ class MenuServiceImplTest {
         assertEquals("Menu not found with ID: " + nonExistentMenuId, exception.getMessage());
         verify(menuRepository).findById(nonExistentMenuId);
         verify(menuRepository, never()).save(any(Menu.class));
+        verify(menuItemRepository, never()).findByMenuId(anyLong()); // menuItemRepo should not be called
+    }
+
+    @Test
+    @DisplayName("deleteMenu - Success with MenuItems Deactivation")
+    void deleteMenu_whenMenuHasActiveItems_shouldDeactivateItemsAndMenu() {
+        // Arrange
+        assertTrue(testMenu.isActive());
+        MenuItem item1 = new MenuItem(); item1.setId(101L); item1.setActive(true); item1.setMenu(testMenu);
+        MenuItem item2 = new MenuItem(); item2.setId(102L); item2.setActive(true); item2.setMenu(testMenu);
+        List<MenuItem> items = List.of(item1, item2);
+
+        when(menuRepository.findById(testMenu.getId())).thenReturn(Optional.of(testMenu));
+        when(menuItemRepository.findByMenuId(testMenu.getId())).thenReturn(items);
+        when(menuRepository.save(any(Menu.class))).thenReturn(testMenu); // or thenAnswer
+        when(menuItemRepository.save(any(MenuItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+
+        // Act
+        menuService.deleteMenu(testMenu.getId());
+
+        // Assert
+        verify(menuRepository).findById(testMenu.getId());
+        verify(menuItemRepository).findByMenuId(testMenu.getId());
+        verify(menuItemRepository, times(2)).save(any(MenuItem.class)); // Called for each item
+        verify(menuRepository).save(testMenu);
+
+        assertFalse(testMenu.isActive(), "Menu should be deactivated");
+        assertFalse(item1.isActive(), "Item 1 should be deactivated");
+        assertFalse(item2.isActive(), "Item 2 should be deactivated");
     }
 }

@@ -1,9 +1,7 @@
 // File: backend/menu/src/main/java/com/multirestaurantplatform/menu/service/MenuService.java
 package com.multirestaurantplatform.menu.service;
 
-import com.multirestaurantplatform.menu.dto.CreateMenuRequestDto;
-import com.multirestaurantplatform.menu.dto.MenuResponseDto;
-import com.multirestaurantplatform.menu.dto.UpdateMenuRequestDto;
+import com.multirestaurantplatform.menu.dto.*;
 
 import java.util.List;
 
@@ -66,4 +64,13 @@ public interface MenuService {
      * @throws com.multirestaurantplatform.common.exception.ResourceNotFoundException if the menu with the given ID is not found (for hard delete scenarios).
      */
     void deleteMenu(Long menuId);
+
+
+    // Methods for MenuItems
+    MenuItemResponseDto addMenuItemToMenu(CreateMenuItemRequestDto menuItemDto); // Changed: menuId is in DTO
+    MenuItemResponseDto getMenuItemById(Long menuItemId);
+    List<MenuItemResponseDto> getMenuItemsByMenuId(Long menuId);
+    List<MenuItemResponseDto> getActiveMenuItemsByMenuId(Long menuId);
+    MenuItemResponseDto updateMenuItem(Long menuItemId, UpdateMenuItemRequestDto menuItemDto);
+    void deleteMenuItem(Long menuItemId); // Soft delete by default (sets isActive=false)
 }
