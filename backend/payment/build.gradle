@@ -41,4 +41,14 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
+
+    // --- Testing Dependencies ---
+    // Spring Boot Test Starter (includes JUnit and Mockito)
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // Spring Security Test
+    testImplementation 'org.springframework.security:spring-security-test'
+
+    // H2 database for tests (if needed for integration tests)
+    testRuntimeOnly 'com.h2database:h2'
 }

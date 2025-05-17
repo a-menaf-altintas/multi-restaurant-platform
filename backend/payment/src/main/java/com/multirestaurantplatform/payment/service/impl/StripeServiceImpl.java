@@ -9,7 +9,6 @@ import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
-import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.StripeObject;
 import com.stripe.net.Webhook;
@@ -23,6 +22,10 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
+/**
+ * Implementation of StripeService that handles payment processing and webhooks
+ * with Stripe integration. Also handles sending notifications for payment events.
+ */
 @Service
 @RequiredArgsConstructor
 public class StripeServiceImpl implements StripeService {
@@ -38,6 +41,9 @@ public class StripeServiceImpl implements StripeService {
     private final OrderService orderService;
     private final NotificationService notificationService;
 
+    /**
+     * Initializes the Stripe API with the configured secret key.
+     */
     @PostConstruct
     public void init() {
         Stripe.apiKey = secretKey;
@@ -46,6 +52,9 @@ public class StripeServiceImpl implements StripeService {
                         "[PRESENT]" : "[MISSING or FALLBACK]");
     }
 
+    /**
+     * Exception thrown when payment processing fails.
+     */
     public static class PaymentProcessingException extends RuntimeException {
         public PaymentProcessingException(String message, Throwable cause) {
             super(message, cause);
@@ -55,6 +64,16 @@ public class StripeServiceImpl implements StripeService {
         }
     }
 
+    /**
+     * Creates a PaymentIntent with Stripe.
+     *
+     * @param amount The amount for the payment in the smallest currency unit (e.g., cents).
+     * @param currency The 3-letter ISO currency code (e.g., "usd", "cad").
+     * @param orderId Your internal order ID, to be stored as metadata.
+     * @param customerEmail The email of the customer, for Stripe's records and receipts.
+     * @return The client secret of the created PaymentIntent.
+     * @throws PaymentProcessingException if there's an error with Stripe or payment creation.
+     */
     @Override
     public String createPaymentIntent(long amount, String currency, String orderId, String customerEmail)
             throws PaymentProcessingException {
@@ -99,11 +118,21 @@ public class StripeServiceImpl implements StripeService {
         }
     }
 
+    /**
+     * Handles incoming Stripe webhook events.
+     * Verifies the event signature and processes the event based on its type.
+     *
+     * @param payload The raw JSON payload from the webhook request.
+     * @param sigHeader The value of the 'Stripe-Signature' header.
+     * @throws SignatureVerificationException if the signature verification fails.
+     * @throws PaymentProcessingException for other processing errors.
+     */
     @Override
     public void handleWebhookEvent(String payload, String sigHeader)
             throws SignatureVerificationException, PaymentProcessingException {
         Event event;
         try {
+            // Verify webhook signature using Stripe SDK
             event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
         } catch (SignatureVerificationException e) {
             logger.error("Webhook error: Invalid Stripe signature. Message: {}", e.getMessage());
@@ -114,10 +143,10 @@ public class StripeServiceImpl implements StripeService {
             throw new PaymentProcessingException("Error constructing webhook event: " + e.getMessage(), e);
         }
 
-        EventDataObjectDeserializer dataObjectDeserializer = event.getDataObjectDeserializer();
+        // Extract the Stripe object from the event
         StripeObject stripeObject = null;
-        if (dataObjectDeserializer.getObject().isPresent()) {
-            stripeObject = dataObjectDeserializer.getObject().get();
+        if (event.getDataObjectDeserializer().getObject().isPresent()) {
+            stripeObject = event.getDataObjectDeserializer().getObject().get();
         } else {
             logger.warn("Webhook warning: Deserialization of event data object failed for event ID: {} Type: {}",
                     event.getId(), event.getType());
@@ -126,6 +155,7 @@ public class StripeServiceImpl implements StripeService {
         logger.info("Received Stripe Event: Id='{}', Type='{}', Livemode='{}'",
                 event.getId(), event.getType(), event.getLivemode());
 
+        // Process the event based on its type
         switch (event.getType()) {
             case "payment_intent.succeeded":
                 handlePaymentIntentSucceeded(event, stripeObject);
@@ -140,41 +170,125 @@ public class StripeServiceImpl implements StripeService {
         }
     }
 
-    private void handlePaymentIntentSucceeded(Event event, StripeObject stripeObject) {
+    /**
+     * Processes a successful payment intent event.
+     * Updates the order status and sends notifications.
+     *
+     * @param event The Stripe event
+     * @param stripeObject The Stripe object (should be a PaymentIntent)
+     */
+    void handlePaymentIntentSucceeded(Event event, StripeObject stripeObject) {
         if (!(stripeObject instanceof PaymentIntent)) {
             logger.warn("payment_intent.succeeded event for event ID: {} but StripeObject was not a PaymentIntent or was null after deserialization.",
                     event.getId());
             return;
         }
 
-        PaymentIntent paymentIntentSucceeded = (PaymentIntent) stripeObject;
-        String orderIdStr = paymentIntentSucceeded.getMetadata().get("order_id");
-        String piId = paymentIntentSucceeded.getId();
+        PaymentIntent paymentIntent = (PaymentIntent) stripeObject;
+        String orderIdStr = paymentIntent.getMetadata().get("order_id");
+        String paymentIntentId = paymentIntent.getId();
 
-        // Attempt to get customer email from metadata first, then from receipt_email
-        String customerEmail = paymentIntentSucceeded.getMetadata().get("customer_email_for_order");
+        // Get customer email - first from metadata, then fallback to receipt_email
+        String customerEmail = paymentIntent.getMetadata().get("customer_email_for_order");
         if (customerEmail == null || customerEmail.isBlank()) {
-            customerEmail = paymentIntentSucceeded.getReceiptEmail();
+            customerEmail = paymentIntent.getReceiptEmail();
         }
 
         logger.info("PaymentIntent Succeeded: PI_ID={}, Amount={}, OrderID (metadata)={}",
-                piId, paymentIntentSucceeded.getAmount(), orderIdStr);
+                paymentIntentId, paymentIntent.getAmount(), orderIdStr);
 
         if (orderIdStr == null) {
-            logger.warn("PaymentIntent Succeeded (PI ID: {}) but order_id was missing from metadata.", piId);
+            logger.warn("PaymentIntent Succeeded (PI ID: {}) but order_id was missing from metadata.", paymentIntentId);
             return;
         }
 
         try {
             Long orderId = Long.parseLong(orderIdStr);
-            Order order = orderService.processPaymentSuccess(orderId, piId);
-            logger.info("OrderService successfully processed payment success for orderId: {}", orderId);
 
             // Convert Stripe's amount (in cents) to a BigDecimal for notification
-            BigDecimal amount = BigDecimal.valueOf(paymentIntentSucceeded.getAmount())
+            BigDecimal amount = BigDecimal.valueOf(paymentIntent.getAmount())
                     .divide(BigDecimal.valueOf(100));
 
-            // Send notifications
+            // Call the helper method with all the extracted data
+            handlePaymentIntentSucceeded(orderId, paymentIntentId, customerEmail, amount, paymentIntent.getCurrency());
+
+        } catch (NumberFormatException e) {
+            logger.error("Error parsing orderId '{}' from PaymentIntent metadata for PI ID: {}",
+                    orderIdStr, paymentIntentId, e);
+        } catch (Exception e) {
+            logger.error("Error during post-payment success processing for orderId: {}, PI ID: {}. Error: {}",
+                    orderIdStr, paymentIntentId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Processes a failed payment intent event.
+     * Updates the order status and sends notifications.
+     *
+     * @param event The Stripe event
+     * @param stripeObject The Stripe object (should be a PaymentIntent)
+     */
+    void handlePaymentIntentFailed(Event event, StripeObject stripeObject) {
+        if (!(stripeObject instanceof PaymentIntent)) {
+            logger.warn("payment_intent.payment_failed event for event ID: {} but StripeObject was not a PaymentIntent or was null after deserialization.",
+                    event.getId());
+            return;
+        }
+
+        PaymentIntent paymentIntent = (PaymentIntent) stripeObject;
+        String orderIdStr = paymentIntent.getMetadata().get("order_id");
+        String paymentIntentId = paymentIntent.getId();
+
+        // Get failure reason from the PaymentIntent
+        String failureReason = paymentIntent.getLastPaymentError() != null ?
+                paymentIntent.getLastPaymentError().getMessage() : "N/A";
+
+        // Get customer email - first from metadata, then fallback to receipt_email
+        String customerEmail = paymentIntent.getMetadata().get("customer_email_for_order");
+        if (customerEmail == null || customerEmail.isBlank()) {
+            customerEmail = paymentIntent.getReceiptEmail();
+        }
+
+        logger.info("PaymentIntent Failed: PI_ID={}, OrderID (metadata)={}, FailureReason={}",
+                paymentIntentId, orderIdStr, failureReason);
+
+        if (orderIdStr == null) {
+            logger.warn("PaymentIntent Failed (PI ID: {}) but order_id was missing from metadata.", paymentIntentId);
+            return;
+        }
+
+        try {
+            Long orderId = Long.parseLong(orderIdStr);
+
+            // Call the helper method with all the extracted data
+            handlePaymentIntentFailed(orderId, paymentIntentId, customerEmail, failureReason);
+
+        } catch (NumberFormatException e) {
+            logger.error("Error parsing orderId '{}' from PaymentIntent metadata for PI ID: {}",
+                    orderIdStr, paymentIntentId, e);
+        } catch (Exception e) {
+            logger.error("Error during post-payment failure processing for orderId: {}, PI ID: {}. Error: {}",
+                    orderIdStr, paymentIntentId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Helper method for tests - handles a successful payment
+     *
+     * @param orderId The order ID
+     * @param paymentIntentId The Stripe payment intent ID
+     * @param customerEmail The customer's email
+     * @param amount The payment amount
+     * @param currency The payment currency
+     */
+    void handlePaymentIntentSucceeded(Long orderId, String paymentIntentId, String customerEmail,
+                                      BigDecimal amount, String currency) {
+        try {
+            // Update order status through the OrderService
+            Order order = orderService.processPaymentSuccess(orderId, paymentIntentId);
+            logger.info("OrderService successfully processed payment success for orderId: {}", orderId);
+
+            // Send notifications using the NotificationService
             notificationService.notifyRestaurantOfNewPaidOrder(
                     orderId,
                     order.getRestaurantId(),
@@ -186,62 +300,38 @@ public class StripeServiceImpl implements StripeService {
                     orderId,
                     customerEmail != null ? customerEmail : "N/A",
                     amount,
-                    paymentIntentSucceeded.getCurrency()
+                    currency
             );
-
-        } catch (NumberFormatException e) {
-            logger.error("Error parsing orderId '{}' from PaymentIntent metadata for PI ID: {}",
-                    orderIdStr, piId, e);
         } catch (Exception e) {
-            logger.error("Error during post-payment success processing for orderId: {}, PI ID: {}. Error: {}",
-                    orderIdStr, piId, e.getMessage(), e);
+            logger.error("Error during payment success processing for orderId: {}, PI ID: {}. Error: {}",
+                    orderId, paymentIntentId, e.getMessage(), e);
         }
     }
 
-    private void handlePaymentIntentFailed(Event event, StripeObject stripeObject) {
-        if (!(stripeObject instanceof PaymentIntent)) {
-            logger.warn("payment_intent.payment_failed event for event ID: {} but StripeObject was not a PaymentIntent or was null after deserialization.",
-                    event.getId());
-            return;
-        }
-
-        PaymentIntent paymentIntentFailed = (PaymentIntent) stripeObject;
-        String orderIdStr = paymentIntentFailed.getMetadata().get("order_id");
-        String piId = paymentIntentFailed.getId();
-        String failureReason = paymentIntentFailed.getLastPaymentError() != null ?
-                paymentIntentFailed.getLastPaymentError().getMessage() : "N/A";
-
-        String customerEmail = paymentIntentFailed.getMetadata().get("customer_email_for_order");
-        if (customerEmail == null || customerEmail.isBlank()) {
-            customerEmail = paymentIntentFailed.getReceiptEmail();
-        }
-
-        logger.info("PaymentIntent Failed: PI_ID={}, OrderID (metadata)={}, FailureReason={}",
-                piId, orderIdStr, failureReason);
-
-        if (orderIdStr == null) {
-            logger.warn("PaymentIntent Failed (PI ID: {}) but order_id was missing from metadata.", piId);
-            return;
-        }
-
+    /**
+     * Helper method for tests - handles a failed payment
+     *
+     * @param orderId The order ID
+     * @param paymentIntentId The Stripe payment intent ID
+     * @param customerEmail The customer's email
+     * @param failureReason The reason for the payment failure
+     */
+    void handlePaymentIntentFailed(Long orderId, String paymentIntentId, String customerEmail,
+                                   String failureReason) {
         try {
-            Long orderId = Long.parseLong(orderIdStr);
-            orderService.processPaymentFailure(orderId, piId, failureReason);
+            // Update order status through the OrderService
+            orderService.processPaymentFailure(orderId, paymentIntentId, failureReason);
             logger.info("OrderService successfully processed payment failure for orderId: {}", orderId);
 
-            // Send notification
+            // Send notification using the NotificationService
             notificationService.sendPaymentFailureToCustomer(
                     orderId,
                     customerEmail != null ? customerEmail : "N/A",
                     failureReason
             );
-
-        } catch (NumberFormatException e) {
-            logger.error("Error parsing orderId '{}' from PaymentIntent metadata for PI ID: {}",
-                    orderIdStr, piId, e);
         } catch (Exception e) {
-            logger.error("Error during post-payment failure processing for orderId: {}, PI ID: {}. Error: {}",
-                    orderIdStr, piId, e.getMessage(), e);
+            logger.error("Error during payment failure processing for orderId: {}, PI ID: {}. Error: {}",
+                    orderId, paymentIntentId, e.getMessage(), e);
         }
     }
 }
