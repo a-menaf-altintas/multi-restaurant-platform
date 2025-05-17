@@ -1,4 +1,4 @@
-package com.multirestaurantplatform.api.dto.error;
+package com.multirestaurantplatform.common.dto.error;
 
 import java.time.LocalDateTime;
 

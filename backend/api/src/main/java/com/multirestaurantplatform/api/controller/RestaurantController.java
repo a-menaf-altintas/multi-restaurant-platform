@@ -1,5 +1,6 @@
 package com.multirestaurantplatform.api.controller;
 
+import com.multirestaurantplatform.common.dto.error.ErrorResponse;
 import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
 import com.multirestaurantplatform.restaurant.dto.RestaurantResponseDto;
 import com.multirestaurantplatform.restaurant.dto.UpdateRestaurantRequestDto;
@@ -63,10 +64,10 @@ public class RestaurantController {
                responses = {
                    @ApiResponse(responseCode = "201", description = "Restaurant created successfully",
                                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
-                   @ApiResponse(responseCode = "400", description = "Invalid input data (e.g., validation error)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "403", description = "Forbidden - User does not have ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "409", description = "Conflict - Restaurant name or email already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                   @ApiResponse(responseCode = "400", description = "Invalid input data (e.g., validation error)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden - User does not have ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "409", description = "Conflict - Restaurant name or email already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
                })
     public ResponseEntity<RestaurantResponseDto> createRestaurant(
             @Valid @RequestBody CreateRestaurantRequestDto createDto) {
@@ -83,9 +84,9 @@ public class RestaurantController {
                responses = {
                    @ApiResponse(responseCode = "200", description = "Restaurant found",
                                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
-                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "403", description = "Forbidden (if specific role checks were added and failed)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden (if specific role checks were added and failed)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
                })
     public ResponseEntity<RestaurantResponseDto> getRestaurantById(@PathVariable Long id) {
         LOGGER.debug("API call to get restaurant by ID: {}", id);
@@ -100,8 +101,8 @@ public class RestaurantController {
                responses = {
                    @ApiResponse(responseCode = "200", description = "List of restaurants retrieved",
                                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
-                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
                })
     public ResponseEntity<List<RestaurantResponseDto>> getAllRestaurants() {
         // TODO: Implement pagination (e.g., using Pageable) and filtering
@@ -123,11 +124,11 @@ public class RestaurantController {
                responses = {
                    @ApiResponse(responseCode = "200", description = "Restaurant updated successfully",
                                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = RestaurantResponseDto.class))),
-                   @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "409", description = "Conflict - Updated name or email already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                   @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "409", description = "Conflict - Updated name or email already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
                })
     public ResponseEntity<RestaurantResponseDto> updateRestaurant(
             @PathVariable Long id,
@@ -144,9 +145,9 @@ public class RestaurantController {
                description = "Deletes a specific restaurant by its ID. Requires ADMIN role.",
                responses = {
                    @ApiResponse(responseCode = "204", description = "Restaurant deleted successfully"),
-                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "403", description = "Forbidden - User does not have ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                   @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "403", description = "Forbidden - User does not have ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                   @ApiResponse(responseCode = "404", description = "Restaurant not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
                })
     public ResponseEntity<Void> deleteRestaurant(@PathVariable Long id) {
         LOGGER.info("API call to delete restaurant with ID: {}", id);

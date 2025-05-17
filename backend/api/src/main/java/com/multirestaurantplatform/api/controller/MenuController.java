@@ -1,6 +1,7 @@
 // File: backend/api/src/main/java/com/multirestaurantplatform/api/controller/MenuController.java
 package com.multirestaurantplatform.api.controller;
 
+import com.multirestaurantplatform.common.dto.error.ErrorResponse;
 import com.multirestaurantplatform.menu.dto.CreateMenuItemRequestDto;
 import com.multirestaurantplatform.menu.dto.CreateMenuRequestDto;
 import com.multirestaurantplatform.menu.dto.MenuItemResponseDto;
@@ -56,15 +57,15 @@ public class MenuController {
                     @ApiResponse(responseCode = "201", description = "Menu created successfully",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuResponseDto.class))),
                     @ApiResponse(responseCode = "400", description = "Invalid input data",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
                     @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token is missing or invalid",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
                     @ApiResponse(responseCode = "403", description = "Forbidden - User does not have necessary permissions",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
                     @ApiResponse(responseCode = "404", description = "Restaurant not found",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
                     @ApiResponse(responseCode = "409", description = "Conflict - Menu name already exists for the restaurant",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<MenuResponseDto> createMenu(
             @Valid @RequestBody CreateMenuRequestDto createMenuRequestDto) {
@@ -81,8 +82,8 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "Menu found",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuResponseDto.class))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<MenuResponseDto> getMenuById(
             @Parameter(description = "ID of the menu to be retrieved") @PathVariable Long menuId) {
@@ -98,7 +99,7 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "List of menus retrieved",
                             content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = MenuResponseDto.class)))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
             })
     public ResponseEntity<List<MenuResponseDto>> getMenusByRestaurantId(
             @Parameter(description = "ID of the restaurant whose menus are to be retrieved") @PathVariable Long restaurantId) {
@@ -114,7 +115,7 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "List of active menus retrieved",
                             content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = MenuResponseDto.class)))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
             })
     public ResponseEntity<List<MenuResponseDto>> getActiveMenusByRestaurantId(
             @Parameter(description = "ID of the restaurant whose active menus are to be retrieved") @PathVariable Long restaurantId) {
@@ -130,11 +131,11 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "Menu updated successfully",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuResponseDto.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "409", description = "Conflict - Updated name already exists for the restaurant", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "409", description = "Conflict - Updated name already exists for the restaurant", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<MenuResponseDto> updateMenu(
             @Parameter(description = "ID of the menu to be updated") @PathVariable Long menuId,
@@ -151,9 +152,9 @@ public class MenuController {
             description = "Soft deletes a menu by its ID (sets isActive to false). Requires ADMIN role, or RESTAURANT_ADMIN role for the restaurant owning the menu.",
             responses = {
                     @ApiResponse(responseCode = "204", description = "Menu deleted successfully (set to inactive)"),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<Void> deleteMenu(
             @Parameter(description = "ID of the menu to be deleted") @PathVariable Long menuId) {
@@ -172,11 +173,11 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "201", description = "Menu item created successfully",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuItemResponseDto.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid input data (e.g., menuId not found, validation error)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Parent Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "409", description = "Conflict - Item name already exists in this menu", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "400", description = "Invalid input data (e.g., menuId not found, validation error)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Parent Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "409", description = "Conflict - Item name already exists in this menu", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<MenuItemResponseDto> addMenuItemToMenu(
             @Valid @RequestBody CreateMenuItemRequestDto createMenuItemRequestDto) {
@@ -193,8 +194,8 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "Menu item found",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuItemResponseDto.class))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu item not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu item not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<MenuItemResponseDto> getMenuItemById(
             @Parameter(description = "ID of the menu item to retrieve") @PathVariable Long itemId) {
@@ -210,8 +211,8 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "List of menu items",
                             content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = MenuItemResponseDto.class)))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<List<MenuItemResponseDto>> getMenuItemsByMenuId(
             @Parameter(description = "ID of the menu whose items are to be retrieved") @PathVariable Long menuId) {
@@ -228,8 +229,8 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "List of active menu items",
                             content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = MenuItemResponseDto.class)))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<List<MenuItemResponseDto>> getActiveMenuItemsByMenuId(
             @Parameter(description = "ID of the menu whose active items are to be retrieved") @PathVariable Long menuId) {
@@ -252,11 +253,11 @@ public class MenuController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "Menu item updated successfully",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuItemResponseDto.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu item or parent menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "409", description = "Conflict - Item name already exists in this menu", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu item or parent menu not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "409", description = "Conflict - Item name already exists in this menu", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<MenuItemResponseDto> updateMenuItem(
             @Parameter(description = "ID of the menu item to update") @PathVariable Long itemId,
@@ -275,9 +276,9 @@ public class MenuController {
             description = "Soft deletes a menu item by ID (sets isActive to false). Requires ADMIN role or RESTAURANT_ADMIN for the parent menu's restaurant.",
             responses = {
                     @ApiResponse(responseCode = "204", description = "Menu item deleted successfully (set to inactive)"),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class))),
-                    @ApiResponse(responseCode = "404", description = "Menu item not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = com.multirestaurantplatform.api.dto.error.ErrorResponse.class)))
+                    @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "404", description = "Menu item not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             })
     public ResponseEntity<Void> deleteMenuItem(
             @Parameter(description = "ID of the menu item to be deleted") @PathVariable Long itemId) {

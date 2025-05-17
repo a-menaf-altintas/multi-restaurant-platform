@@ -4,7 +4,7 @@ package com.multirestaurantplatform.api.exception;
 import com.multirestaurantplatform.common.exception.BadRequestException; // Added
 import com.multirestaurantplatform.common.exception.ConflictException; // Added
 import com.multirestaurantplatform.common.exception.ResourceNotFoundException; // Added
-import com.multirestaurantplatform.api.dto.error.ErrorResponse; // Added
+import com.multirestaurantplatform.common.dto.error.ErrorResponse; // Added
 
 import com.multirestaurantplatform.order.exception.IllegalOrderStateException;
 import jakarta.servlet.http.HttpServletRequest; // Added if not present, or use WebRequest

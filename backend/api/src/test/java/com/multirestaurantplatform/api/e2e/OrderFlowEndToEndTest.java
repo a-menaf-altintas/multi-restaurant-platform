@@ -9,8 +9,8 @@ import com.multirestaurantplatform.menu.dto.MenuResponseDto;
 import com.multirestaurantplatform.order.dto.*;
 import com.multirestaurantplatform.order.model.OrderStatus;
 import com.multirestaurantplatform.order.service.OrderService;
-import com.multirestaurantplatform.order.service.client.MenuItemDetailsDto; // Added
-import com.multirestaurantplatform.order.service.client.StubMenuServiceClientImpl; // Added
+import com.multirestaurantplatform.order.service.client.MenuItemDetailsDto;
+import com.multirestaurantplatform.order.service.client.StubMenuServiceClientImpl;
 import com.multirestaurantplatform.restaurant.dto.CreateRestaurantRequestDto;
 import com.multirestaurantplatform.restaurant.dto.RestaurantResponseDto;
 import com.multirestaurantplatform.restaurant.dto.UpdateRestaurantRequestDto;
@@ -19,7 +19,7 @@ import com.multirestaurantplatform.security.dto.LoginRequest;
 import com.multirestaurantplatform.security.dto.RegisterRequest;
 import com.multirestaurantplatform.security.dto.UserResponseDto;
 import com.multirestaurantplatform.security.model.Role;
-import org.junit.jupiter.api.BeforeEach; // Added
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -60,16 +60,15 @@ public class OrderFlowEndToEndTest {
     @Autowired
     private OrderService orderService;
 
-    @Autowired // Autowire the stub implementation
+    @Autowired
     private StubMenuServiceClientImpl stubMenuServiceClient;
 
-    // Static variables to share data between test methods
     private static String adminToken;
     private static String restaurantAdminToken;
     private static String customerToken;
     private static Long restaurantAdminUserId;
     private static Long restaurantId;
-    private static String restaurantName; // Store restaurant name
+    private static String restaurantName;
     private static Long menuId;
 
     private static Long dynamicPickupMenuItemId;
@@ -80,12 +79,11 @@ public class OrderFlowEndToEndTest {
     private static String dynamicDeliveryMenuItemName = "E2E Delivery Pizza";
     private static BigDecimal dynamicDeliveryMenuItemPrice = new BigDecimal("15.50");
 
-    private static Long secondRestaurantId; // For step 14
-    private static String secondRestaurantName; // For step 14
+    private static Long secondRestaurantId;
+    private static String secondRestaurantName;
     private static Long dynamicSecondRestaurantItemId;
     private static String dynamicSecondRestaurantItemName = "Second Restaurant Item";
     private static BigDecimal dynamicSecondRestaurantItemPrice = new BigDecimal("7.77");
-
 
     private static final String ADMIN_USERNAME = "e2eAdmin_" + UUID.randomUUID().toString().substring(0, 6);
     private static final String RESTAURANT_ADMIN_USERNAME = "e2eResAdmin_" + UUID.randomUUID().toString().substring(0, 6);
@@ -97,14 +95,8 @@ public class OrderFlowEndToEndTest {
 
     @BeforeEach
     void setUpEachTest() {
-        // Clear the stub's mock database before certain tests if necessary,
-        // especially if not relying on @DirtiesContext for full reset or if tests might interfere.
-        // For this sequential E2E, we'll populate it as we go.
-        // If step4b is the first one populating, it's fine.
-        // If tests were independent, this would be more critical.
-        // stubMenuServiceClient.clearMockDatabase(); // Example: clear before each test
+        // stubMenuServiceClient.clearMockDatabase(); // Cleared in step5
     }
-
 
     @Test
     @Order(1)
@@ -155,7 +147,7 @@ public class OrderFlowEndToEndTest {
                 .andReturn();
         RestaurantResponseDto restaurantResponse = objectMapper.readValue(result.getResponse().getContentAsString(), RestaurantResponseDto.class);
         restaurantId = restaurantResponse.getId();
-        restaurantName = restaurantResponse.getName(); // Store restaurant name
+        restaurantName = restaurantResponse.getName();
         assertNotNull(restaurantId, "Restaurant ID should not be null");
         assertNotNull(restaurantName, "Restaurant Name should not be null");
         System.out.println("Step 2: Restaurant created with ID: " + restaurantId + ", Name: " + restaurantName);
@@ -208,72 +200,51 @@ public class OrderFlowEndToEndTest {
     }
 
     @Test
-    @Order(5) // Changed order
-    void step5_restaurantAdminCreatesMenuItems() throws Exception { // Renamed from step4b
+    @Order(5)
+    void step5_restaurantAdminCreatesMenuItems() throws Exception {
         System.out.println("Step 5: Restaurant Admin Creating Menu Items...");
         assertNotNull(restaurantAdminToken, "Restaurant admin token is required.");
         assertNotNull(menuId, "Menu ID is required for creating menu items.");
         assertNotNull(restaurantId, "Restaurant ID is required for MenuItemDetailsDto.");
         assertNotNull(restaurantName, "Restaurant Name is required for MenuItemDetailsDto.");
 
-        stubMenuServiceClient.clearMockDatabase(); // Clear stub before populating for this test run section
+        stubMenuServiceClient.clearMockDatabase();
 
-        // Create Pickup Item
         CreateMenuItemRequestDto pickupItemDto = new CreateMenuItemRequestDto(
-                dynamicPickupMenuItemName,
-                "A tasty burger for pickup.",
-                dynamicPickupMenuItemPrice,
-                null,
-                menuId,
-                "Vegetarian option available",
-                true
-        );
+                dynamicPickupMenuItemName, "A tasty burger for pickup.", dynamicPickupMenuItemPrice,
+                null, menuId, "Vegetarian option available", true);
         MvcResult pickupResult = mockMvc.perform(post("/api/v1/menu-items")
                         .header("Authorization", "Bearer " + restaurantAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(pickupItemDto)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").exists())
-                .andReturn();
+                .andExpect(status().isCreated()).andReturn();
         MenuItemResponseDto pickupItemResponse = objectMapper.readValue(pickupResult.getResponse().getContentAsString(), MenuItemResponseDto.class);
         dynamicPickupMenuItemId = pickupItemResponse.getId();
         assertNotNull(dynamicPickupMenuItemId, "Dynamic Pickup MenuItem ID should not be null");
-        // Add to stub
         stubMenuServiceClient.addMenuItemDetails(new MenuItemDetailsDto(
                 dynamicPickupMenuItemId, dynamicPickupMenuItemName, dynamicPickupMenuItemPrice, restaurantId, restaurantName, true));
         System.out.println("Step 5: Pickup MenuItem created with ID: " + dynamicPickupMenuItemId + " and added to stub.");
 
-        // Create Delivery Item
         CreateMenuItemRequestDto deliveryItemDto = new CreateMenuItemRequestDto(
-                dynamicDeliveryMenuItemName,
-                "A delicious pizza for delivery.",
-                dynamicDeliveryMenuItemPrice,
-                null,
-                menuId,
-                "Contains gluten",
-                true
-        );
+                dynamicDeliveryMenuItemName, "A delicious pizza for delivery.", dynamicDeliveryMenuItemPrice,
+                null, menuId, "Contains gluten", true);
         MvcResult deliveryResult = mockMvc.perform(post("/api/v1/menu-items")
                         .header("Authorization", "Bearer " + restaurantAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(deliveryItemDto)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").exists())
-                .andReturn();
+                .andExpect(status().isCreated()).andReturn();
         MenuItemResponseDto deliveryItemResponse = objectMapper.readValue(deliveryResult.getResponse().getContentAsString(), MenuItemResponseDto.class);
         dynamicDeliveryMenuItemId = deliveryItemResponse.getId();
         assertNotNull(dynamicDeliveryMenuItemId, "Dynamic Delivery MenuItem ID should not be null");
-        // Add to stub
         stubMenuServiceClient.addMenuItemDetails(new MenuItemDetailsDto(
                 dynamicDeliveryMenuItemId, dynamicDeliveryMenuItemName, dynamicDeliveryMenuItemPrice, restaurantId, restaurantName, true));
         System.out.println("Step 5: Delivery MenuItem created with ID: " + dynamicDeliveryMenuItemId + " and added to stub.");
         System.out.println("Step 5: Completed.");
     }
 
-
     @Test
-    @Order(6) // Changed order
-    void step6_customerAddsItemToCart_PickupScenario() throws Exception { // Renamed from step5
+    @Order(6)
+    void step6_customerAddsItemToCart_PickupScenario() throws Exception {
         System.out.println("Step 6: Customer Adding Item for Pickup Scenario...");
         assertNotNull(customerToken, "Customer token is required.");
         assertNotNull(restaurantId, "Restaurant ID is required.");
@@ -297,15 +268,20 @@ public class OrderFlowEndToEndTest {
     }
 
     @Test
-    @Order(7) // Changed order
+    @Order(7)
     @Transactional
-    void step7_customerPlacesAndRestaurantProcessesPickupOrder() throws Exception { // Renamed from step6And7
+    void step7_customerPlacesAndRestaurantProcessesPickupOrder() throws Exception {
         System.out.println("Step 7: Customer Placing Order for Pickup & Restaurant Processing...");
         assertNotNull(customerToken, "Customer token is required.");
 
+        // For pickup, PlaceOrderRequestDto can be null or empty
+        PlaceOrderRequestDto placeOrderDto = new PlaceOrderRequestDto();
+        // placeOrderDto.setSpecialInstructions("Extra napkins for pickup"); // Optional
+
         MvcResult orderResult = mockMvc.perform(post("/api/v1/users/{userId}/orders/place-from-cart", CUSTOMER_USERNAME)
                         .header("Authorization", "Bearer " + customerToken)
-                        .contentType(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(placeOrderDto))) // Send DTO
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.status").value(OrderStatus.PENDING_PAYMENT.name()))
@@ -314,6 +290,9 @@ public class OrderFlowEndToEndTest {
         pickupOrderId = placedOrder.getId();
         assertNotNull(pickupOrderId, "Pickup Order ID should not be null.");
         assertEquals(restaurantId, placedOrder.getRestaurantId());
+        // if (placeOrderDto.getSpecialInstructions() != null) { // Assert optional fields if sent
+        //     assertEquals(placeOrderDto.getSpecialInstructions(), placedOrder.getSpecialInstructions());
+        // }
         System.out.println("Sub-step 7.1: Pickup Order placed with ID: " + pickupOrderId + ", Status: " + placedOrder.getStatus());
 
         if (pickupOrderId != null) {
@@ -354,7 +333,7 @@ public class OrderFlowEndToEndTest {
     }
 
     @Test
-    @Order(8) // Changed order
+    @Order(8)
     void step8_customerAddsItemToCart_DeliveryScenario() throws Exception {
         System.out.println("Step 8: Customer Adding Item for Delivery Scenario...");
         assertNotNull(customerToken, "Customer token is required.");
@@ -385,24 +364,37 @@ public class OrderFlowEndToEndTest {
                         .header("Authorization", "Bearer " + customerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isNotEmpty());
-
         System.out.println("Step 8: Item " + dynamicDeliveryMenuItemId + " added to cart for delivery order by user " + CUSTOMER_USERNAME);
     }
 
-
     @Test
-    @Order(9) // Changed order
+    @Order(9)
     @Transactional
-    void step9_customerPlacesAndRestaurantProcessesDeliveryOrder() throws Exception { // Renamed from step9And10
+    void step9_customerPlacesAndRestaurantProcessesDeliveryOrder() throws Exception {
         System.out.println("Step 9: Customer Placing Order for Delivery & Restaurant Processing...");
         assertNotNull(customerToken, "Customer token is required.");
 
+        PlaceOrderRequestDto deliveryOrderDto = new PlaceOrderRequestDto();
+        deliveryOrderDto.setDeliveryAddressLine1("123 Main St");
+        deliveryOrderDto.setDeliveryCity("Anytown");
+        deliveryOrderDto.setDeliveryState("CA");
+        deliveryOrderDto.setDeliveryPostalCode("90210");
+        deliveryOrderDto.setDeliveryCountry("USA");
+        deliveryOrderDto.setCustomerContactNumber("555-0101");
+        deliveryOrderDto.setSpecialInstructions("Leave at front door.");
+
         MvcResult orderResult = mockMvc.perform(post("/api/v1/users/{userId}/orders/place-from-cart", CUSTOMER_USERNAME)
                         .header("Authorization", "Bearer " + customerToken)
-                        .contentType(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deliveryOrderDto))) // Send DTO with address
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.status").value(OrderStatus.PENDING_PAYMENT.name()))
+                .andExpect(jsonPath("$.deliveryAddressLine1").value(deliveryOrderDto.getDeliveryAddressLine1())) // Assert address
+                .andExpect(jsonPath("$.deliveryCity").value(deliveryOrderDto.getDeliveryCity()))
+                .andExpect(jsonPath("$.deliveryPostalCode").value(deliveryOrderDto.getDeliveryPostalCode()))
+                .andExpect(jsonPath("$.customerContactNumber").value(deliveryOrderDto.getCustomerContactNumber()))
+                .andExpect(jsonPath("$.specialInstructions").value(deliveryOrderDto.getSpecialInstructions()))
                 .andReturn();
         OrderResponse placedOrder = objectMapper.readValue(orderResult.getResponse().getContentAsString(), OrderResponse.class);
         deliveryOrderId = placedOrder.getId();
@@ -434,7 +426,7 @@ public class OrderFlowEndToEndTest {
                 .andExpect(jsonPath("$.status").value(OrderStatus.PREPARING.name()));
         System.out.println("Order " + deliveryOrderId + " status: PREPARING");
 
-        mockMvc.perform(put("/api/v1/orders/" + deliveryOrderId + "/ready-for-pickup")
+        mockMvc.perform(put("/api/v1/orders/" + deliveryOrderId + "/ready-for-pickup") // This status is also used before "out for delivery"
                         .header("Authorization", "Bearer " + restaurantAdminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(OrderStatus.READY_FOR_PICKUP.name()));
@@ -453,10 +445,9 @@ public class OrderFlowEndToEndTest {
         System.out.println("Order " + deliveryOrderId + " status: DELIVERED (Delivery Completed). Step 9 complete.");
     }
 
-
     @Test
-    @Order(10) // Changed order
-    void step10_cartManipulation_AddItemAgain() throws Exception { // Renamed from step11
+    @Order(10)
+    void step10_cartManipulation_AddItemAgain() throws Exception {
         System.out.println("Step 10: Cart Manipulation - Adding item again...");
         assertNotNull(customerToken, "Customer token is required.");
         assertNotNull(restaurantId, "Restaurant ID is required.");
@@ -479,10 +470,9 @@ public class OrderFlowEndToEndTest {
         System.out.println("Step 10: Item added to cart.");
     }
 
-
     @Test
-    @Order(11) // Changed order
-    void step11_cartManipulation_UpdateCartItem() throws Exception { // Renamed from step12
+    @Order(11)
+    void step11_cartManipulation_UpdateCartItem() throws Exception {
         System.out.println("Step 11: Cart Manipulation - Updating cart item...");
         assertNotNull(customerToken, "Customer token is required.");
         assertNotNull(dynamicPickupMenuItemId, "Dynamic Pickup MenuItem ID is required.");
@@ -499,8 +489,8 @@ public class OrderFlowEndToEndTest {
     }
 
     @Test
-    @Order(12) // Changed order
-    void step12_cartManipulation_RemoveCartItem() throws Exception { // Renamed from step13
+    @Order(12)
+    void step12_cartManipulation_RemoveCartItem() throws Exception {
         System.out.println("Step 12: Cart Manipulation - Removing cart item...");
         assertNotNull(customerToken, "Customer token is required.");
         assertNotNull(dynamicPickupMenuItemId, "Dynamic Pickup MenuItem ID is required.");
@@ -513,8 +503,8 @@ public class OrderFlowEndToEndTest {
     }
 
     @Test
-    @Order(13) // Changed order
-    void step13_cartManipulation_AddItemsFromDifferentRestaurant() throws Exception { // Renamed from step14
+    @Order(13)
+    void step13_cartManipulation_AddItemsFromDifferentRestaurant() throws Exception {
         System.out.println("Step 13: Cart Manipulation - Testing multi-restaurant behavior...");
         assertNotNull(adminToken, "Admin token is required for this step.");
         assertNotNull(customerToken, "Customer token is required.");
@@ -525,7 +515,6 @@ public class OrderFlowEndToEndTest {
                 .andExpect(status().isNoContent());
         System.out.println("Cart explicitly cleared before testing multi-restaurant behavior");
 
-        // Create a second restaurant and its admin/menu/menuitem
         String secondRestaurantAdminUsername = "e2eResAdmin2_" + UUID.randomUUID().toString().substring(0, 6);
         registerUserHelper(secondRestaurantAdminUsername, secondRestaurantAdminUsername + "@example.com", USER_PASSWORD, Set.of(Role.RESTAURANT_ADMIN));
         String secondRestaurantAdminToken = loginAndGetTokenHelper(secondRestaurantAdminUsername, USER_PASSWORD);
@@ -534,8 +523,7 @@ public class OrderFlowEndToEndTest {
 
         String uniqueSecondRestaurantName = "Second E2E Test Restaurant " + UUID.randomUUID().toString().substring(0, 4);
         CreateRestaurantRequestDto createSecondRestaurantDto = new CreateRestaurantRequestDto(
-                uniqueSecondRestaurantName,
-                "Second restaurant for cart test", "456 Test Avenue", "555-5678",
+                uniqueSecondRestaurantName, "Second restaurant for cart test", "456 Test Avenue", "555-5678",
                 "second_e2e_restaurant_" + UUID.randomUUID().toString().substring(0, 4) + "@example.com");
         MvcResult secondRestaurantResult = mockMvc.perform(post("/api/v1/restaurants")
                         .header("Authorization", "Bearer " + adminToken)
@@ -543,8 +531,8 @@ public class OrderFlowEndToEndTest {
                         .content(objectMapper.writeValueAsString(createSecondRestaurantDto)))
                 .andExpect(status().isCreated()).andReturn();
         RestaurantResponseDto secondRestaurantResponse = objectMapper.readValue(secondRestaurantResult.getResponse().getContentAsString(), RestaurantResponseDto.class);
-        secondRestaurantId = secondRestaurantResponse.getId(); // Store static var
-        secondRestaurantName = secondRestaurantResponse.getName(); // Store static var
+        secondRestaurantId = secondRestaurantResponse.getId();
+        secondRestaurantName = secondRestaurantResponse.getName();
         assertNotNull(secondRestaurantId, "Second restaurant ID should not be null");
 
         UpdateRestaurantRequestDto updateSecondRestaurantDto = new UpdateRestaurantRequestDto();
@@ -573,11 +561,9 @@ public class OrderFlowEndToEndTest {
         MenuItemResponseDto secondMenuItem = objectMapper.readValue(secondMenuItemResult.getResponse().getContentAsString(), MenuItemResponseDto.class);
         dynamicSecondRestaurantItemId = secondMenuItem.getId();
         assertNotNull(dynamicSecondRestaurantItemId, "Dynamic Second Restaurant MenuItem ID should not be null");
-        // Add to stub
         stubMenuServiceClient.addMenuItemDetails(new MenuItemDetailsDto(
                 dynamicSecondRestaurantItemId, dynamicSecondRestaurantItemName, dynamicSecondRestaurantItemPrice, secondRestaurantId, secondRestaurantName, true));
         System.out.println("Created second restaurant with ID: " + secondRestaurantId + ", Menu ID: " + secondMenuId + ", MenuItem ID: " + dynamicSecondRestaurantItemId + " and added to stub.");
-
 
         AddItemToCartRequest firstRestaurantItem = new AddItemToCartRequest(restaurantId, dynamicPickupMenuItemId, 2);
         MvcResult firstCartResult = mockMvc.perform(post("/api/v1/users/{userId}/cart/items", CUSTOMER_USERNAME)
@@ -613,8 +599,8 @@ public class OrderFlowEndToEndTest {
     }
 
     @Test
-    @Order(14) // Changed order
-    void step14_cartManipulation_MultipleItemsAndTotalCalculation() throws Exception { // Renamed from step15
+    @Order(14)
+    void step14_cartManipulation_MultipleItemsAndTotalCalculation() throws Exception {
         System.out.println("Step 14: Cart Manipulation - Adding multiple items and verifying total calculation...");
         assertNotNull(customerToken, "Customer token is required.");
         assertNotNull(dynamicPickupMenuItemId, "Dynamic Pickup MenuItem ID is required.");
@@ -660,8 +646,8 @@ public class OrderFlowEndToEndTest {
     }
 
     @Test
-    @Order(15) // Changed order
-    void step15_cartManipulation_GetCartAfterManipulation() throws Exception { // Renamed from step16
+    @Order(15)
+    void step15_cartManipulation_GetCartAfterManipulation() throws Exception {
         System.out.println("Step 15: Cart Manipulation - Getting cart after manipulation...");
         assertNotNull(customerToken, "Customer token is required.");
         assertNotNull(dynamicPickupMenuItemId, "Dynamic Pickup MenuItem ID is required.");

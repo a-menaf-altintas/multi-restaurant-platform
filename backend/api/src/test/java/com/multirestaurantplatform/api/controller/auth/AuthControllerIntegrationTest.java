@@ -1,7 +1,7 @@
 package com.multirestaurantplatform.api.controller.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.multirestaurantplatform.api.dto.error.ErrorResponse;
+import com.multirestaurantplatform.common.dto.error.ErrorResponse;
 import com.multirestaurantplatform.security.dto.JwtAuthenticationResponse;
 import com.multirestaurantplatform.security.dto.LoginRequest;
 import com.multirestaurantplatform.security.dto.RegisterRequest;
